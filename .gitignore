@@ -1,0 +1,18 @@
+# VS-Code
+*.vscode*
+
+# Python Cache
+
+
+# Latex
+*.aux*
+*.lof*
+*.log*
+*.lot*
+*.fls*
+*.out*
+*.toc*
+*.fmt*
+*.fot*
+*.cb*
+*.cb2*
