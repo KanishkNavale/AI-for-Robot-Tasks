@@ -19,7 +19,7 @@ jobs:
           python-version: '3.x'
 
       # Install RAI
-      - name: Install RAI & test from github
+      - name: Install bare RAI
         run: |
           sudo apt-get install python3 python3-dev python3-numpy python3-pip python3-distutils
           echo 'export PATH="${PATH}:$HOME/.local/bin"' >> ~/.bashrc
@@ -33,8 +33,7 @@ jobs:
       - name: Lint with flake8
         run: |
           pip install flake8
-          flake8 .
-        continue-on-error: true
+          flake8 . --exclude .rai
 
       # Install dependencies
       - name: Install dependencies
