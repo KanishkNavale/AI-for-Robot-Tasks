@@ -7,13 +7,6 @@
 
 ## How to contribute to this project?
 
-( NOTE: Please do not commit to the master branch !!! )
-
-1. If new feature is to be added then,
-    * Create a new branch with appropriate task name.
-    * Link the task branch with the marked issued.
-    * When done, create a pull request.
-
-2. The pull request will be added to master branch after workflow checks.
-
-3. Create 'pytest' if needed for features in development in GitHub workflows. 
+[ 25.11.2021 -> Could not build RAI in GitHub Workflow for now ]
+1. Lint using the 'flake8'
+2. Write & test own pytest responsibly.
