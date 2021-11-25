@@ -17,6 +17,17 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
+
+      # Install RAI
+      - name: Install RAI from github as source
+        run: |
+          git clone --recursive https://github.com/MarcToussaint/robotics-course.git
+          cd robotics-course
+          make -j1 installUbuntuAll
+          mkdir build
+          cd build
+          cmake ..
+          make -j $(command nproc)
       
       # Check linting of the source
       - name: Lint with flake8
