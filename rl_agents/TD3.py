@@ -72,7 +72,7 @@ class ReplayBuffer:
 
 class CriticNetwork(nn.Module):
     def __init__(self, beta, input_dims, fc1_dims, fc2_dims, n_actions,
-                 name, chkpt_dir='data/'):
+                 name, chkpt_dir):
         """
         Description,
             Initializes Critic Network.
@@ -99,7 +99,7 @@ class CriticNetwork(nn.Module):
         self.q1 = nn.Linear(self.fc2_dims, 1)
 
         self.optimizer = optim.Adam(self.parameters(), lr=beta)
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+        self.device = T.device('cpu')
 
         self.to(self.device)
 
@@ -139,7 +139,7 @@ class CriticNetwork(nn.Module):
 
 class ActorNetwork(nn.Module):
     def __init__(self, alpha, input_dims, fc1_dims, fc2_dims,
-                 n_actions, name, chkpt_dir='data/'):
+                 n_actions, name, chkpt_dir):
         """
         Description,
             Initializes Actor Network.
@@ -166,7 +166,7 @@ class ActorNetwork(nn.Module):
         self.mu = nn.Linear(self.fc2_dims, self.n_actions)
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+        self.device = T.device('cpu')
 
         self.to(self.device)
 
@@ -204,9 +204,9 @@ class ActorNetwork(nn.Module):
 
 
 class Agent():
-    def __init__(self, alpha, beta, tau, env,
-                 gamma=0.99, update_actor_interval=2,
-                 n_actions=2, max_size=1000000, layer1_size=512,
+    def __init__(self, obs_shape, n_actions, datapath, alpha=0.0001, 
+                 beta=0.001, tau=0.005, gamma=0.99, update_actor_interval=2,
+                 max_size=1000000, layer1_size=512,
                  layer2_size=512, batch_size=100, noise=0.1):
         """
         Description,
@@ -235,34 +235,34 @@ class Agent():
         self.time_step = 0
         self.n_actions = n_actions
         self.update_actor_iter = update_actor_interval
-        self.input_dims = env.observation_space.shape[0]
+        self.input_dims = obs_shape
         self.memory = ReplayBuffer(max_size, self.input_dims, n_actions)
 
         self.actor = ActorNetwork(alpha, self.input_dims, layer1_size,
                                   layer2_size, n_actions=n_actions,
-                                  name='actor')
+                                  name='actor', chkpt_dir=datapath)
 
         self.critic_1 = CriticNetwork(beta, self.input_dims, layer1_size,
                                       layer2_size, n_actions=n_actions,
-                                      name='critic_1')
+                                      name='critic_1', chkpt_dir=datapath)
 
         self.critic_2 = CriticNetwork(beta, self.input_dims, layer1_size,
                                       layer2_size, n_actions=n_actions,
-                                      name='critic_2')
+                                      name='critic_2', chkpt_dir=datapath)
 
         self.target_actor = ActorNetwork(alpha, self.input_dims, layer1_size,
                                          layer2_size, n_actions=n_actions,
-                                         name='target_actor')
+                                         name='target_actor', chkpt_dir=datapath)
 
         self.target_critic_1 = CriticNetwork(beta, self.input_dims,
                                              layer1_size,
                                              layer2_size, n_actions=n_actions,
-                                             name='target_critic_1')
+                                             name='target_critic_1', chkpt_dir=datapath)
 
         self.target_critic_2 = CriticNetwork(beta, self.input_dims,
                                              layer1_size,
                                              layer2_size, n_actions=n_actions,
-                                             name='target_critic_2')
+                                             name='target_critic_2', chkpt_dir=datapath)
 
         self.noise = noise
         self.update_network_parameters(tau=1)

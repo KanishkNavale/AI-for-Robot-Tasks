@@ -2,7 +2,8 @@
 *.vscode*
 
 # Python Cache
-
+*__pycache__*
+*.venv*
 
 # Latex
 *.aux*
