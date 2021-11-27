@@ -204,10 +204,10 @@ class ActorNetwork(nn.Module):
 
 
 class Agent():
-    def __init__(self, obs_shape, n_actions, datapath, alpha=0.0001, 
-                 beta=0.001, tau=0.005, gamma=0.99, update_actor_interval=2,
-                 max_size=1000000, layer1_size=512,
-                 layer2_size=512, batch_size=100, noise=0.1):
+    def __init__(self, obs_shape, n_actions, datapath, alpha=0.0001,
+                 beta=0.0002, tau=0.005, gamma=0.99, update_actor_interval=2,
+                 max_size=250000, layer1_size=1024,
+                 layer2_size=512, batch_size=64, noise=0.1):
         """
         Description,
             Initializes  Agent.
@@ -252,17 +252,20 @@ class Agent():
 
         self.target_actor = ActorNetwork(alpha, self.input_dims, layer1_size,
                                          layer2_size, n_actions=n_actions,
-                                         name='target_actor', chkpt_dir=datapath)
+                                         name='target_actor',
+                                         chkpt_dir=datapath)
 
         self.target_critic_1 = CriticNetwork(beta, self.input_dims,
                                              layer1_size,
                                              layer2_size, n_actions=n_actions,
-                                             name='target_critic_1', chkpt_dir=datapath)
+                                             name='target_critic_1',
+                                             chkpt_dir=datapath)
 
         self.target_critic_2 = CriticNetwork(beta, self.input_dims,
                                              layer1_size,
                                              layer2_size, n_actions=n_actions,
-                                             name='target_critic_2', chkpt_dir=datapath)
+                                             name='target_critic_2',
+                                             chkpt_dir=datapath)
 
         self.noise = noise
         self.update_network_parameters(tau=1)

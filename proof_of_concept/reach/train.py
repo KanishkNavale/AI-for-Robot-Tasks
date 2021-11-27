@@ -9,14 +9,15 @@ import copy
 sys.path.append('robotics-lab-project/rl_agents')
 from TD3 import Agent
 
+
 # Definition for Dense Reward Engineering
 def dense_reward(desired_goal, achieved_goal):
     """
     Description:
         Generates a dense reward for the given states.
     Args:
-        desired_goal ([type=np.float32, size=(desired_goal.shape,)]): Desired Goal Position
-        achieved_goal ([type]): [description]
+        desired_goal ([type=np.float32, size=(desired_goal.shape,)]):
+        achieved_goal ([type])
     Returns:
         [np.float32]: Dense Reward
     """
@@ -30,20 +31,22 @@ def dense_reward(desired_goal, achieved_goal):
         done = False
 
     return reward, done
-
+ 
 
 # Main script pointer
 if __name__ == "__main__":
+
     # Init. datapath
-    data_path = os.getcwd() + '/robotics-lab-project/proof_of_concept/reach/data/'
+    data_path = os.getcwd() + \
+        '/robotics-lab-project/proof_of_concept/reach/data/'
 
     # Load the environment
     env = gym.make('FetchReach-v1')
-    
+
     # Build Shapes for States and Actions
     state_shape = env.observation_space['observation'].shape[0] + \
-                  env.observation_space['achieved_goal'].shape[0] + \
-                  env.observation_space['desired_goal'].shape[0]
+        env.observation_space['achieved_goal'].shape[0] + \
+        env.observation_space['desired_goal'].shape[0]
     action_shape = env.action_space.shape[0]
 
     # Init. Agent
@@ -76,10 +79,14 @@ if __name__ == "__main__":
             next_obs = np.concatenate((next_state, next_actgoal, next_desgoal))
 
             reward, done = dense_reward(next_desgoal, curr_actgoal)
-            agent.memory.store_transition(np.concatenate((state, curr_actgoal, curr_desgoal)),
+            agent.memory.store_transition(np.concatenate((state,
+                                                          curr_actgoal,
+                                                          curr_desgoal)),
                                           action,
                                           reward,
-                                          np.concatenate((next_state, next_actgoal, next_desgoal)),
+                                          np.concatenate((next_state,
+                                                          next_actgoal,
+                                                          next_desgoal)),
                                           done)
 
             OBS = copy.deepcopy(next_OBS)
@@ -99,9 +106,14 @@ if __name__ == "__main__":
         if avg_score > best_score:
             best_score = avg_score
             agent.save_models()
-            print(f'Episode:{i} \t ACC. Rewards: {score:3.2f} \t AVG. Rewards: {avg_score:3.2f} \t *** MODEL SAVED! ***')
+            print(f'Episode:{i}'
+                  f'\t ACC. Rewards: {score:3.2f}'
+                  f'\t AVG. Rewards: {avg_score:3.2f}'
+                  f'\t *** MODEL SAVED! ***')
         else:
-            print(f'Episode:{i} \t ACC. Rewards: {score:3.2f} \t AVG. Rewards: {avg_score:3.2f}')
+            print(f'Episode:{i}'
+                  f'\t ACC. Rewards: {score:3.2f}'
+                  f'\t AVG. Rewards: {avg_score:3.2f}')
 
         # Save the score log
         np.save(data_path + 'score_history', score_history, allow_pickle=False)
