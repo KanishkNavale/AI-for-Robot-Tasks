@@ -126,7 +126,7 @@ class Agent:
         self.actor = ActorNetwork(n_actions, input_dims, alpha, datapath)
         self.critic = CriticNetwork(input_dims, alpha, datapath)
         self.memory = PPOMemory(batch_size)
-       
+
     def remember(self, state, action, probs, vals, reward, done):
         self.memory.store_memory(state, action, probs, vals, reward, done)
 

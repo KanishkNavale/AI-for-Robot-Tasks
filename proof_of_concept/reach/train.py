@@ -7,7 +7,7 @@ import copy
 
 # Import TD3.Agent
 sys.path.append('rl_agents')
-from PPO import Agent
+from DDPG import Agent
 
 # Main script pointer
 if __name__ == "__main__":
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     action_shape = env.action_space.shape[0]
 
     # Init. Agent
-    agent = Agent(state_shape, action_shape, data_path)
+    agent = Agent(env, state_shape, action_shape, data_path)
 
     # Init. Training
     best_score = -np.inf
@@ -48,14 +48,20 @@ if __name__ == "__main__":
             obs = np.concatenate((state, curr_actgoal, curr_desgoal))
 
             # Choose agent based action & make a transition
-            action, prob, val = agent.choose_action(obs)
+            action = agent.choose_action(obs)
             next_OBS, reward, done, info = env.step(action)
 
             next_state, next_actgoal, next_desgoal = next_OBS.values()
             next_obs = np.concatenate((next_state, next_actgoal, next_desgoal))
 
-            agent.remember(np.concatenate((state, curr_actgoal, curr_desgoal)),
-                           action, prob, val, reward, done)
+            agent.memory.store_transition(np.concatenate((state, curr_actgoal,
+                                                          curr_desgoal)),
+                                          action,
+                                          reward,
+                                          np.concatenate((next_state,
+                                                          next_actgoal,
+                                                          next_desgoal)),
+                                          done)
 
             OBS = copy.deepcopy(next_OBS)
             score += reward
@@ -65,7 +71,7 @@ if __name__ == "__main__":
                 break
 
         # Optimize the agent
-        agent.learn()
+        agent.optimize(1)
 
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])
