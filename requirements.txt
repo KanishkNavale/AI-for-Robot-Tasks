@@ -1,3 +1,6 @@
-numpy
+gym
 matplotlib
+numpy
 torch
+torchvision
+torchaudio

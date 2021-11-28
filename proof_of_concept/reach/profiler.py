@@ -8,12 +8,10 @@ path = os.getcwd()
 
 # Load all the data frames
 score = np.load(
-    path + '/robotics-lab-project/proof_of_concept/\
-        reach/data/score_history.npy',
+    path + '/proof_of_concept/reach/data/score_history.npy',
     allow_pickle=False)
 avg = np.load(
-    path + '/robotics-lab-project/proof_of_concept/\
-        reach/data/avg_history.npy',
+    path + '/proof_of_concept/reach/data/avg_history.npy',
     allow_pickle=False)
 
 # Generate graphs
@@ -25,5 +23,4 @@ plt.ylabel('Rewards')
 plt.legend(loc='best')
 plt.title('Training Profile')
 plt.savefig(
-    path + '/robotics-lab-project/proof_of_concept/\
-        reach/data/' + 'Training Profile.png')
+    path + '/proof_of_concept/reach/data/' + 'Training Profile.png')

@@ -92,14 +92,14 @@ class CriticNetwork(nn.Module):
         self.n_actions = n_actions
         self.name = name
         self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_td3')
+        self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_td3')
 
         self.fc1 = nn.Linear(self.input_dims + n_actions, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.q1 = nn.Linear(self.fc2_dims, 1)
 
         self.optimizer = optim.Adam(self.parameters(), lr=beta)
-        self.device = T.device('cpu')
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
 
         self.to(self.device)
 
@@ -159,14 +159,14 @@ class ActorNetwork(nn.Module):
         self.n_actions = n_actions
         self.name = name
         self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_td3')
+        self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_td3')
 
         self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.mu = nn.Linear(self.fc2_dims, self.n_actions)
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
-        self.device = T.device('cpu')
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
 
         self.to(self.device)
 
@@ -204,7 +204,7 @@ class ActorNetwork(nn.Module):
 
 
 class Agent():
-    def __init__(self, obs_shape, n_actions, datapath, alpha=0.0001,
+    def __init__(self, env, obs_shape, n_actions, datapath, alpha=0.0001,
                  beta=0.0002, tau=0.005, gamma=0.99, update_actor_interval=2,
                  max_size=250000, layer1_size=1024,
                  layer2_size=512, batch_size=64, noise=0.1):
@@ -227,8 +227,8 @@ class Agent():
         """
         self.gamma = gamma
         self.tau = tau
-        self.max_action = 100
-        self.min_action = -100
+        self.max_action = env.action_space.high[0]
+        self.min_action = env.action_space.low[0]
 
         self.batch_size = batch_size
         self.learn_step_cntr = 0
@@ -321,7 +321,7 @@ class Agent():
 
         target_actions = self.target_actor.forward(state_)
         target_actions = target_actions + T.clamp(
-                         T.tensor(np.random.normal(scale=0.2)), -0.5, 0.5)
+            T.tensor(np.random.normal(scale=0.2)), -0.5, 0.5)
         target_actions = T.clamp(target_actions, self.min_action,
                                  self.max_action)
 
@@ -339,7 +339,7 @@ class Agent():
 
         critic_value_ = T.min(q1_, q2_)
 
-        target = reward + self.gamma*critic_value_
+        target = reward + self.gamma * critic_value_
         target = target.view(self.batch_size, 1)
 
         self.critic_1.optimizer.zero_grad()
@@ -388,16 +388,16 @@ class Agent():
         target_critic_2 = dict(target_critic_2_params)
 
         for name in critic_1:
-            critic_1[name] = tau * critic_1[name].clone() + (1-tau) *\
-                             target_critic_1[name].clone()
+            critic_1[name] = tau * critic_1[name].clone() + (1 - tau) *\
+                target_critic_1[name].clone()
 
         for name in critic_2:
-            critic_2[name] = tau * critic_2[name].clone() + (1-tau) *\
-                             target_critic_2[name].clone()
+            critic_2[name] = tau * critic_2[name].clone() + (1 - tau) *\
+                target_critic_2[name].clone()
 
         for name in actor:
-            actor[name] = tau*actor[name].clone() + \
-                          (1-tau)*target_actor[name].clone()
+            actor[name] = tau * actor[name].clone() + \
+                (1 - tau) * target_actor[name].clone()
 
         self.target_critic_1.load_state_dict(critic_1)
         self.target_critic_2.load_state_dict(critic_2)
