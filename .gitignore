@@ -1,9 +1,10 @@
-# VS-Code
+# Environemts
 *.vscode*
+*.antlr*
+*.venv*
 
 # Python Cache
 *__pycache__*
-*.venv*
 
 # Latex
 *.aux*
@@ -17,3 +18,9 @@
 *.fot*
 *.cb*
 *.cb2*
+*.dvi*
+*.synctex.gz*
+*.sty*
+
+# RAI
+*.log.global*

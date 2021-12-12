@@ -1,60 +1,75 @@
 % Author: Olga Klimashevska
 
 \documentclass[a4paper,11pt,twoside]{article}
-
+% 6mm
 
 \usepackage[width=150mm,top=25mm,bottom=25mm,bindingoffset=15mm]{geometry}
 \usepackage[utf8]{inputenc}
-\usepackage[british]{babel} 
+\usepackage[british]{babel} % This command guarantees proper word hyphenation.
 
 \usepackage[T1]{fontenc}
 \usepackage[mono=false]{libertine}
-\usepackage{libertinust1math} 
+\usepackage{libertinust1math} % Libertine for maths
 
+% This prevents a too long URL from staying in the same line.
 \PassOptionsToPackage{hyphens}{url}
-\usepackage[plainpages=false]{hyperref}
+\usepackage[plainpages=false]{hyperref} % Package to create hyperlinks. Do NOT remove its option!
 
 
-\usepackage{amsthm} 
-\usepackage{enumitem} 
-\usepackage{lipsum}
+\usepackage{amsthm} % Package to typyset mathematical theorems, definitions etc.
+
+
+\usepackage{enumitem} % Package to control the vertical space between items in the lists
+
+\usepackage{lipsum} % Lorem Ipsum package (dummy text)
 
 % Bibliography management
 \usepackage[square, authoryear]{natbib}
 \bibliographystyle{abbrvnat}
+
 \usepackage{titlePage_custom}
 
-
+% This command sets citation in paranthesis as a default.
 \renewcommand{\cite}[1]{\citep{#1}}
 
+
+% End of the preamble, start of the document body.
 \begin{document}
 
+%% This command ensures that the columns of type S, i.e., comma-aligned by "siunitx"
+%% do not take extra space.
+%\setlength\tabcolsep{3pt} 
+
+%%%%%%%%%% PLEASE FILL IN YOUR INFORMATION PROPERLY %%%%%%%%%%
 \author{
-  Kanishk Navale\\
-  \texttt{3437531}
-  \and
-  Olga Klimashevska\\
-  \texttt{3525388}
+    Kanishk Navale\\
+    \texttt{3437531}
+    \and
+    Olga Klimashevska\\
+    \texttt{3525388}
 }
 
 \department{Faculty 5:\\
-Computer Science, Electrical Engineering and Information Technology}
+    Computer Science, Electrical Engineering and Information Technology}
 \project{Project Proposal}
-
+% Please double-check the correct capitalization 
+% of the title on https://capitalizemytitle.com/
 \title{Practical Course Robotics}
 
 \supervisor{Dr. Jim Mainprice \& Yoojin Oh}
 \researchGroup{Human to Robots Motion Research Group}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% This command builds the title page.
 \maketitle
 
 
 \section{Objective} \label{Sec:Obj}
-The project demonstrates how to teach a robot to perform teleoperation tasks using model-free trajectory planning, i.e., without explicit inverse kinematics. 
+The project demonstrates how to teach a robot to perform teleoperation tasks using model-free trajectory planning, i.e., without explicit inverse kinematics.
 
-One of the teleoperation tasks \textit{can be} smart sorting, i.e., objects of predefined shape and/or colour have to be placed on correct tiles (i.e., coloured squared space on the scene floor), whereas objects do not necessarily have to be of the same size. More specifically, a yellow brick has to be placed on a red tile, and a green cylinder has to be placed on a blue tile. 
+One of the teleoperation tasks \textit{can be} smart sorting, i.e., objects of predefined shape and/or colour have to be placed on correct tiles (i.e., coloured squared space on the scene floor), whereas objects do not necessarily have to be of the same size. More specifically, a yellow brick has to be placed on a red tile, and a green cylinder has to be placed on a blue tile.
 
-During  teaching session, a certain number of example objects are situated in the visible for the robot area where the marked goal-tiles are identifiable as well. These objects represent a so-called learning pile. The robot attempts to approach an object, grasp it, move to a tile and place it there. After each step in this action sequence, the robot receives an automatic signal that confirms or rejects their choice which enables the robot to learn from their experience. 
+During  teaching session, a certain number of example objects are situated in the visible for the robot area where the marked goal-tiles are identifiable as well. These objects represent a so-called learning pile. The robot attempts to approach an object, grasp it, move to a tile and place it there. After each step in this action sequence, the robot receives an automatic signal that confirms or rejects their choice which enables the robot to learn from their experience.
 
 Object by object, the robot learns the correct mapping of the object type to the tile type. After the learning pile is sorted, the robot is supposed to be ready to perform the sorting task on the testing pile. Hence, we can see again a new set of example objects together with the corresponding empty tiles for the testing stage. During this stage, the robot performs the final task of sorting after which the final accuracy score is displayed to the user.
 
@@ -63,13 +78,13 @@ Object by object, the robot learns the correct mapping of the object type to the
 The project will be implemented in the RAI environment using algorithms of Reinforcement Learning (RL).
 
 \subsection{RL Methodology} \label{SubSec:RL}
-In this setup, the states $s_t$ are represented by end effector's locations, i.e., 
+In this setup, the states $s_t$ are represented by end effector's locations, i.e.,
 \begin{equation*}
-	s_t = (Current~Goal, Achieved~Goal, Desired~Goal),
+    s_t = (Current~Goal, Achieved~Goal, Desired~Goal),
 \end{equation*}
 and the actions $a_t$ include
 \begin{equation*}
-	a_t = (Control~Signal, Grasp),
+    a_t = (Control~Signal, Grasp),
 \end{equation*}
 where $Control~Signal$ can include $Velocity$, $Acceleration$ etc.\\
 
@@ -77,20 +92,22 @@ The goal of our RL algorithm is to estimate robot transition probability model. 
 
 Below we provide a preliminary RL pipeline with the approximate time-for-deployment distribution:
 \begin{enumerate}
-\item (5\%) Define the RL environment.
-\item (45\%) Move the robot's end effector from point A and to point B via linear path planning using Dense/ Sparse rewards.
-\item (40\%) Extend the RL model for the task of grasping/releasing the object.
-\item (10\%) Use the RL model to combine steps (2) and (3) to move the robot with the grasped object to the tile position and drop the object.
+    \item (5\%) Define the RL environment.
+    \item (45\%) Move the robot's end effector from point A and to point B via linear path planning using Dense/ Sparse rewards.
+    \item (40\%) Extend the RL model for the task of grasping/releasing the object.
+    \item (10\%) Use the RL model to combine steps (2) and (3) to move the robot with the grasped object to the tile position and drop the object.
 \end{enumerate}
 
 \subsection{Project Scope} \label{SubSec:ProjectScope}
 While keeping the team work split as even as possible, i.e., Kanishk ($\approx$~50\%) and Olga ($\approx$~50\%), we will approach this project in the following sequence of steps with the approximate time-for-deployment distribution:
 \begin{enumerate}
-\item (35\%, in December) Build the RAI/ OpenAI/ ROS environment to give rewards on $Desired~Goal$ state. Here we might use some perception for object identification.
-\item (15\%, in December) Program an RL algorithm to collect the data from the environment.
-\item (50\%, in January) Prove the algorithm for the robot going from point A to point B, in order to make it model-free.
+    \item (35\%, in December) Build the RAI/ OpenAI/ ROS environment to give rewards on $Desired~Goal$ state. Here we might use some perception for object identification.
+    \item (15\%, in December) Program an RL algorithm to collect the data from the environment.
+    \item (50\%, in January) Prove the algorithm for the robot going from point A to point B, in order to make it model-free.
 \end{enumerate}
 
 We shall keep our code in the \href{https://github.com/KanishkNavale/robotics-lab-project}{github repository} where one can also track our \href{https://github.com/users/KanishkNavale/projects/1/views/1}{workflow}.
+
+% No bibliography is included in this template
 
 \end{document}
