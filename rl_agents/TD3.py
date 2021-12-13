@@ -8,6 +8,7 @@ import os
 
 class ReplayBuffer:
     """Defines the Buffer dataset from which the agent learns"""
+
     def __init__(self, max_size, input_shape, dim_actions):
         """
         Description,
@@ -287,7 +288,7 @@ class Agent():
         mu_prime = T.clamp(mu_prime, self.min_action, self.max_action)
         self.time_step += 1
 
-        return mu_prime.cpu().detach().numpy()[0]
+        return mu_prime.cpu().detach().numpy()
 
     def remember(self, state, action, reward, new_state, done):
         """

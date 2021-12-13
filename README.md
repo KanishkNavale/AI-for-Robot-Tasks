@@ -8,7 +8,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
     * 'FetchReach-v1': The best agent is DDPG.
         <p align="left">
-            <img src="proof_of_concept/reach/data/Training Profile.png" width="350" title="hover text">
+            <img src="proof_of_concept/reach/data/Training Profile.png" width="350">
         </p>
 
 ## Repository Setup Instructions
@@ -48,6 +48,22 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     cd $HOME/robotics-lab-project
     pip install -r requirements.txt
     ```
+
+## Project Progress
+
+1. December 13, 2021
+
+    * Tested DDPG & TD3 agent with RAI-gym
+    * Task: Actuate Joints to reach a task space goal position.
+    * Training Profile,
+        |DDPG|TD3|
+        |:--:|:--:|
+        |<img src="main/check_reachPosition/DDPG/data/Training_Profile.png" width="250">| <img src="main/check_reachPosition/TD3/data/Training_Profile.png" width="250">|
+
+    * Analysis
+        * DDPG is better than TD3.
+        * Use Priority Experience Replay Buffer.
+        * May be, use a different agent as J7 joint is not that active.
 
 ## Developers
 

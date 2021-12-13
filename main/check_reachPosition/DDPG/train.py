@@ -1,26 +1,21 @@
-# Library Imports
-import gym
-import numpy as np
-import sys
-import os
-import copy
+from env import RAI_Env
 from rl_agents.DDPG import Agent
+import os
+import numpy as np
+import copy
 
-# Main script pointer
-if __name__ == "__main__":
+if __name__ == '__main__':
 
-    # Init. datapath
-    data_path = os.getcwd() + '/proof_of_concept/reach/data/'
+    # Init. Environment
+    env = RAI_Env()
+    env.reset()
 
-    # Load the environment
-    env = gym.make('FetchReach-v1')
-    env.env.reward_type = "dense"
+    # Init. Datapath
+    data_path = os.getcwd() + '/main/check_reachPosition/data/'
 
     # Build Shapes for States and Actions
-    state_shape = env.observation_space['observation'].shape[0] + \
-        env.observation_space['achieved_goal'].shape[0] + \
-        env.observation_space['desired_goal'].shape[0]
-    action_shape = env.action_space.shape[0]
+    state_shape = 7 + 3 + 3
+    action_shape = 7
 
     # Init. Agent
     agent = Agent(env, state_shape, action_shape, data_path)
@@ -41,34 +36,31 @@ if __name__ == "__main__":
         tick = 0
         while not done:
             # Unpack the observation
-            state, curr_actgoal, curr_desgoal = OBS.values()
-            obs = np.concatenate((state, curr_actgoal, curr_desgoal))
+            q, y, target = OBS.values()
+            obs = np.concatenate((q, y, target))
 
             # Choose agent based action & make a transition
             action = agent.choose_action(obs)
-            next_OBS, reward, done, info = env.step(action)
+            next_OBS, reward, done = env.step(action)
 
-            next_state, next_actgoal, next_desgoal = next_OBS.values()
-            next_obs = np.concatenate((next_state, next_actgoal, next_desgoal))
+            next_q, next_y, next_target = next_OBS.values()
+            next_obs = np.concatenate((next_q, next_y, next_target))
 
-            agent.memory.store_transition(np.concatenate((state, curr_actgoal,
-                                                          curr_desgoal)),
+            agent.memory.store_transition(obs,
                                           action,
                                           reward,
-                                          np.concatenate((next_state,
-                                                          next_actgoal,
-                                                          next_desgoal)),
+                                          next_obs,
                                           done)
 
             OBS = copy.deepcopy(next_OBS)
             score += reward
             tick += 1
 
-            if tick == env._max_episode_steps:
+            if tick == env.max_episode_length:
                 break
 
         # Optimize the agent
-        agent.optimize(1)
+        agent.optimize()
 
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])

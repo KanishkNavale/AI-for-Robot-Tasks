@@ -5,6 +5,7 @@ import tensorflow as tf
 
 class ReplayBuffer:
     """Defines the Buffer dataset from which the agent learns"""
+
     def __init__(self, max_size, input_shape, dim_actions):
         self.mem_size = max_size
         self.mem_cntr = 0
@@ -39,6 +40,7 @@ class ReplayBuffer:
 
 class Critic(tf.keras.Model):
     """Defines a Critic Deep Learning Network"""
+
     def __init__(self, density=512, name='critic'):
         super(Critic, self).__init__()
 
@@ -65,6 +67,7 @@ class Critic(tf.keras.Model):
 
 class Actor(tf.keras.Model):
     """Defines a Actor Deep Learning Network"""
+
     def __init__(self, n_actions, density=512, name='actor'):
         super(Actor, self).__init__()
 
@@ -91,6 +94,7 @@ class Actor(tf.keras.Model):
 
 class Agent:
     """Defines a RL Agent based on Actor-Critc method"""
+
     def __init__(self, env, obs_shape, n_actions, datapath, alpha=0.0001,
                  beta=0.001, gamma=0.99, max_size=250000, tau=0.005,
                  batch_size=64, noise=0.1):
@@ -166,35 +170,34 @@ class Agent:
         actions = tf.clip_by_value(actions, self.min_action, self.max_action)
         return actions[0]
 
-    def optimize(self, steps):
+    def optimize(self):
 
-        for i in range(steps):
-            if self.memory.mem_cntr < self.batch_size:
-                return
+        if self.memory.mem_cntr < self.batch_size:
+            return
 
-            state, action, reward, new_state, done =\
-                self.memory.sample_buffer(self.batch_size)
+        state, action, reward, new_state, done =\
+            self.memory.sample_buffer(self.batch_size)
 
-            with tf.GradientTape() as tape:
-                target_actions = self.target_actor(new_state)
-                critic_value_ = tf.squeeze(
-                    self.target_critic(new_state, target_actions), 1)
-                critic_value = tf.squeeze(self.critic(state, action), 1)
-                target = reward + self.gamma * critic_value_ * (1.0 - done)
-                critic_loss = tf.keras.losses.MSE(target, critic_value)
+        with tf.GradientTape() as tape:
+            target_actions = self.target_actor(new_state)
+            critic_value_ = tf.squeeze(
+                self.target_critic(new_state, target_actions), 1)
+            critic_value = tf.squeeze(self.critic(state, action), 1)
+            target = reward + self.gamma * critic_value_ * (1.0 - done)
+            critic_loss = tf.keras.losses.MSE(target, critic_value)
 
-            critic_network_gradient = tape.gradient(
-                critic_loss, self.critic.trainable_variables)
-            self.critic.optimizer.apply_gradients(zip(
-                critic_network_gradient, self.critic.trainable_variables))
+        critic_network_gradient = tape.gradient(
+            critic_loss, self.critic.trainable_variables)
+        self.critic.optimizer.apply_gradients(zip(
+            critic_network_gradient, self.critic.trainable_variables))
 
-            with tf.GradientTape() as tape:
-                new_policy_actions = self.actor(state)
-                actor_loss = -self.critic(state, new_policy_actions)
-                actor_loss = tf.math.reduce_mean(actor_loss)
+        with tf.GradientTape() as tape:
+            new_policy_actions = self.actor(state)
+            actor_loss = -self.critic(state, new_policy_actions)
+            actor_loss = tf.math.reduce_mean(actor_loss)
 
-            actor_network_gradient = tape.gradient(
-                actor_loss, self.actor.trainable_variables)
-            self.actor.optimizer.apply_gradients(zip(
-                actor_network_gradient, self.actor.trainable_variables))
-            self.update_networks()
+        actor_network_gradient = tape.gradient(
+            actor_loss, self.actor.trainable_variables)
+        self.actor.optimizer.apply_gradients(zip(
+            actor_network_gradient, self.actor.trainable_variables))
+        self.update_networks()

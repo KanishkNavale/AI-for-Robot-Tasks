@@ -1,6 +1,7 @@
 import libry as ry
 from time import sleep
 import gym
+from gym import spaces
 from typing import Dict
 import numpy as np
 
@@ -18,8 +19,10 @@ class RAI_Env(gym.Env):
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
 
         # Init. gym environment
-        self.max_episode_length = 1000
+        self.max_episode_length = 250
         self.tau = 0.01
+        self.action_space = spaces.Box(
+            low=np.array([-np.pi]), high=np.array([np.pi]), dtype=np.float64)
 
         # Goal Indicator
         self.ball = self.K.addFrame(name="ball")
@@ -27,15 +30,10 @@ class RAI_Env(gym.Env):
         self.ball.setColor([0, 1, 0])
 
         # Pre-Reset the env.
+        self.random_target = np.zeros(3)
         self.reset()
 
-    def _random_pos_target(self) -> np.ndarray:
-        """
-        Returns a random task space reachable target
-
-        Returns:
-            np.ndarray: target
-        """
+    def _random_config_space(self):
         q0 = np.random.uniform(-2.8973, 2.8973)
         q1 = np.random.uniform(-1.7628, 1.7628)
         q2 = np.random.uniform(-2.8973, 2.8973)
@@ -44,13 +42,21 @@ class RAI_Env(gym.Env):
         q5 = np.random.uniform(-0.0175, 3.7525)
         q6 = np.random.uniform(-2.8973, 2.8973)
 
+        return np.array([q0, q1, q2, q3, q4, q5, q6])
+
+    def _random_pos_target(self) -> np.ndarray:
+        """
+        Returns a random task space reachable target
+
+        Returns:
+            np.ndarray: target
+        """
         # Set Target in the task space
-        joints = np.array([q0, q1, q2, q3, q4, q5, q6])
-        self.K.setJointState(joints)
+        self.K.setJointState(self._random_config_space())
         state = self._current_state()
 
         # Move the robot to random position
-        self.K.setJointState(np.random.uniform(0, np.pi / 4, (len(joints),)))
+        self.K.setJointState(self._random_config_space())
         return state['y']
 
     def _current_state(self, frame: str = 'gripperCenter') -> Dict:
@@ -69,7 +75,8 @@ class RAI_Env(gym.Env):
 
         state = {
             'q': q,
-            'y': y
+            'y': y,
+            'target': self.random_target
         }
 
         return state
@@ -131,7 +138,7 @@ class RAI_Env(gym.Env):
         reward, done = self._compute_reward(
             next_state['y'], self.random_target)
 
-        return reward, done
+        return next_state, reward, done
 
     def reset(self):
         # Reset the state of the environment to an initial state
@@ -139,3 +146,4 @@ class RAI_Env(gym.Env):
         self.done = False
         self.random_target = self._random_pos_target()
         self.ball.setPosition(self.random_target)
+        return self._current_state()
