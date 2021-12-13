@@ -29,6 +29,27 @@ class RAI_Env(gym.Env):
         # Pre-Reset the env.
         self.reset()
 
+    def _random_pos_target(self) -> np.ndarray:
+        """
+        Returns a random task space reachable target
+
+        Returns:
+            np.ndarray: target
+        """
+        q0 = np.random.uniform(-2.8973, 2.8973)
+        q1 = np.random.uniform(-1.7628, 1.7628)
+        q2 = np.random.uniform(-2.8973, 2.8973)
+        q3 = np.random.uniform(-3.0718, -0.0698)
+        q4 = np.random.uniform(-2.8973, 2.8973)
+        q5 = np.random.uniform(-0.0175, 3.7525)
+        q6 = np.random.uniform(-2.8973, 2.8973)
+
+        joints = np.array([q0, q1, q2, q3, q4, q5, q6])
+        self.K.setJointState(joints)
+        state = self._current_state()
+        self.K.setJointState(joints + 0.2)
+        return state['y']
+
     def _current_state(self, frame: str = 'gripperCenter') -> Dict:
         """
         Reads and Returns feature states of a robot frame.
@@ -85,7 +106,7 @@ class RAI_Env(gym.Env):
         """
         reward = -np.linalg.norm(target_state - next_state)
 
-        if reward >= -0.5:
+        if reward >= -0.1:
             done = True
         elif self.current_episode == self.max_episode_length:
             done = True
@@ -113,5 +134,5 @@ class RAI_Env(gym.Env):
         # Reset the state of the environment to an initial state
         self.current_episode = 0
         self.done = False
-        self.random_target = np.random.uniform(np.pi / 2, 0, (3,))
+        self.random_target = self._random_pos_target()
         self.ball.setPosition(self.random_target)
