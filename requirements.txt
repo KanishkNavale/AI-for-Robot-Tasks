@@ -1,6 +1,6 @@
 gym
 matplotlib
 numpy
-tensorflow
-tensorflow_gpu
-torch
+tensorflow==2.7.0
+tensorflow_gpu==2.7.0
+torch==1.10.0+cu113
