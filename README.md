@@ -62,8 +62,21 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
     * Analysis
         * DDPG is better than TD3.
-        * Use Priority Experience Replay Buffer.
+        * Use Priority Experience Replay Buffer (addressed as PER from now on).
         * May be, use a different agent as J7 joint is not that active.
+
+2. December 14, 2021
+
+    * Tested DDPG & TD3 agent with RAI-gym embedding expert action lookups.
+    * Training Profile (Clipped x-range for better visibility),
+        |DDPG|TD3|
+        |:--:|:--:|
+        |<img src="main/check_aidedPosition/DDPG/data/Training Profile.png" width="350">| <img src="main/check_aidedPosition/TD3/data/Training Profile.png" width="350">|
+
+    * Analysis
+        * DDPG is selected for further implementation. As the training moving average of rewards reached -17.
+        * Upgrade DDPG -> DP4G with PER.
+        * Come up with the good sampling of goals. Sometimes, goal is placed in the robot or at an extremes of the workspace.
 
 ## Developers
 
