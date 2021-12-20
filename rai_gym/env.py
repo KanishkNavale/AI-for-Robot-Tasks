@@ -1,6 +1,7 @@
 import libry as ry
 from time import sleep
 import gym
+from gym import spaces
 from typing import Dict
 import numpy as np
 
@@ -18,8 +19,25 @@ class RAI_Env(gym.Env):
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
 
         # Init. gym environment
-        self.max_episode_length = 1000
-        self.tau = 0.01
+        self.max_episode_length = 250
+        self.tau = 0.001
+
+        # Init. spaces
+        self.action_space = spaces.Box(
+            low=np.array([-2.8973, -1.7628, -2.8973, -3.0718,
+                          -2.8973, -0.0175, 2.8973]),
+            high=np.array([2.8973, 1.7628, 2.8973, -0.0698,
+                           2.8973, 3.7525, 2.8973]),
+            dtype=np.float64)
+
+        self.observation_space = spaces.Box(
+            low=np.array([-2.8973, -1.7628, -2.8973, -3.0718,
+                          -2.8973, -0.0175, 2.8973,
+                          -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]),
+            high=np.array([2.8973, 1.7628, 2.8973, -0.0698,
+                           2.8973, 3.7525, 2.8973,
+                           1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+            dtype=np.float64)
 
         # Goal Indicator
         self.ball = self.K.addFrame(name="ball")
@@ -27,7 +45,19 @@ class RAI_Env(gym.Env):
         self.ball.setColor([0, 1, 0])
 
         # Pre-Reset the env.
+        self.random_target = np.zeros(3)
         self.reset()
+
+    def _random_config_space(self):
+        q0 = np.random.uniform(-2.8, 2.8)
+        q1 = np.random.uniform(-1.7, 1.7)
+        q2 = np.random.uniform(-2.8, 2.8)
+        q3 = np.random.uniform(-3.0, -0.0)
+        q4 = np.random.uniform(-2.8, 2.8)
+        q5 = np.random.uniform(-0.0, 3.7)
+        q6 = np.random.uniform(-2.8, 2.8)
+
+        return np.array([q0, q1, q2, q3, q4, q5, q6])
 
     def _random_pos_target(self) -> np.ndarray:
         """
@@ -36,21 +66,12 @@ class RAI_Env(gym.Env):
         Returns:
             np.ndarray: target
         """
-        q0 = np.random.uniform(-2.8973, 2.8973)
-        q1 = np.random.uniform(-1.7628, 1.7628)
-        q2 = np.random.uniform(-2.8973, 2.8973)
-        q3 = np.random.uniform(-3.0718, -0.0698)
-        q4 = np.random.uniform(-2.8973, 2.8973)
-        q5 = np.random.uniform(-0.0175, 3.7525)
-        q6 = np.random.uniform(-2.8973, 2.8973)
-
         # Set Target in the task space
-        joints = np.array([q0, q1, q2, q3, q4, q5, q6])
-        self.K.setJointState(joints)
+        self.K.setJointState(self._random_config_space())
         state = self._current_state()
 
         # Move the robot to random position
-        self.K.setJointState(np.random.uniform(0, np.pi / 4, (len(joints),)))
+        self.K.setJointState(self._random_config_space())
         return state['y']
 
     def _current_state(self, frame: str = 'gripperCenter') -> Dict:
@@ -69,19 +90,11 @@ class RAI_Env(gym.Env):
 
         state = {
             'q': q,
-            'y': y
+            'y': y,
+            'target': self.random_target
         }
 
         return state
-
-    def _random_action(self) -> np.ndarray:
-        """
-        Returns a random construct of action signal
-
-        Returns:
-            np.ndarray: Random action signal.
-        """
-        return(np.random.uniform(-np.pi, np.pi, (7,)))
 
     def _actuate(self, signal: np.ndarray):
         """
@@ -92,10 +105,8 @@ class RAI_Env(gym.Env):
         """
         self.S.step(signal, self.tau, ry.ControlMode.position)
         self.current_episode += 1
-        sleep(self.tau)
 
-    def _compute_reward(self, next_state: np.ndarray,
-                        target_state: np.ndarray):
+    def _compute_reward(self, next_state: np.ndarray, target_state: np.ndarray):
         """
         Compute Reward for the environment.
 
@@ -107,9 +118,9 @@ class RAI_Env(gym.Env):
             np.float64: Reward
             np.bool_: Done
         """
-        reward = -np.linalg.norm(target_state - next_state)
+        reward = -np.linalg.norm(target_state-next_state)
 
-        if reward >= -0.1:
+        if np.allclose(self.random_target, next_state):
             done = True
         elif self.current_episode == self.max_episode_length:
             done = True
@@ -131,7 +142,7 @@ class RAI_Env(gym.Env):
         reward, done = self._compute_reward(
             next_state['y'], self.random_target)
 
-        return reward, done
+        return next_state, reward, done
 
     def reset(self):
         # Reset the state of the environment to an initial state
@@ -139,3 +150,4 @@ class RAI_Env(gym.Env):
         self.done = False
         self.random_target = self._random_pos_target()
         self.ball.setPosition(self.random_target)
+        return self._current_state()

@@ -228,8 +228,8 @@ class Agent():
         """
         self.gamma = gamma
         self.tau = tau
-        self.max_action = env.action_space.high[0]
-        self.min_action = env.action_space.low[0]
+        self.max_action = env.action_space.high
+        self.min_action = env.action_space.low
 
         self.batch_size = batch_size
         self.learn_step_cntr = 0

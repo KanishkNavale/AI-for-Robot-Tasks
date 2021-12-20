@@ -78,6 +78,12 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
         * Upgrade DDPG -> DP4G with PER.
         * Come up with the good sampling of goals. Sometimes, goal is placed in the robot or at an extremes of the workspace.
 
+3. December 19, 2021
+
+    * OUNoise does not improve exploration.
+
+    * Running env. with veolicty control signals has a hard time converging.
+
 ## Developers
 
 * Olga Klimashevska

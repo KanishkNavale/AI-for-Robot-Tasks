@@ -1,6 +1,8 @@
 # Library Imports
 import numpy as np
 import tensorflow as tf
+tf.random.set_seed(0)
+np.random.seed(0)
 
 
 class ReplayBuffer:
@@ -10,12 +12,12 @@ class ReplayBuffer:
         self.mem_size = max_size
         self.mem_cntr = 0
         self.state_memory = np.zeros((self.mem_size, input_shape),
-                                     dtype=np.float32)
+                                     dtype=np.float64)
         self.new_state_memory = np.zeros((self.mem_size, input_shape),
-                                         dtype=np.float32)
+                                         dtype=np.float64)
         self.action_memory = np.zeros((self.mem_size, dim_actions),
-                                      dtype=np.float32)
-        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
+                                      dtype=np.float64)
+        self.reward_memory = np.zeros(self.mem_size, dtype=np.float64)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
 
     def store_transition(self, state, action, reward, new_state, done):
@@ -56,6 +58,8 @@ class Critic(tf.keras.Model):
 
     @tf.function()
     def call(self, state, action):
+        state = tf.cast(state, tf.float64)
+        action = tf.cast(action, tf.float64)
         action = self.H1(tf.concat([state, action], axis=1))
         action = self.H2(action)
         action = self.drop(action)
@@ -93,11 +97,9 @@ class Actor(tf.keras.Model):
 
 
 class Agent:
-    """Defines a RL Agent based on Actor-Critc method"""
-
     def __init__(self, env, obs_shape, n_actions, datapath, alpha=0.0001,
                  beta=0.001, gamma=0.99, max_size=250000, tau=0.005,
-                 batch_size=64, noise=0.1):
+                 batch_size=128, noise=0.1):
 
         self.env = env
         self.gamma = gamma
@@ -171,7 +173,6 @@ class Agent:
         return actions[0]
 
     def optimize(self):
-
         if self.memory.mem_cntr < self.batch_size:
             return
 
