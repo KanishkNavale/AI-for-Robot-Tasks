@@ -58,7 +58,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     * Training Profile,
         |DDPG|TD3|
         |:--:|:--:|
-        |<img src="main/check_reachPosition/DDPG/data/Training_Profile.png" width="350">| <img src="main/check_reachPosition/TD3/data/Training_Profile.png" width="350">|
+        |<img src="training_ground/check_reachPosition/DDPG/data/Training_Profile.png" width="350">| <img src="training_ground/check_reachPosition/TD3/data/Training_Profile.png" width="350">|
 
     * Analysis
         * DDPG is better than TD3.
@@ -71,7 +71,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     * Training Profile (Clipped x-range for better visibility),
         |DDPG|TD3|
         |:--:|:--:|
-        |<img src="main/check_aidedPosition/DDPG/data/Training Profile.png" width="350">| <img src="main/check_aidedPosition/TD3/data/Training Profile.png" width="350">|
+        |<img src="training_ground/check_aidedPosition/DDPG/data/Training Profile.png" width="350">| <img src="training_ground/check_aidedPosition/TD3/data/Training Profile.png" width="350">|
 
     * Analysis
         * DDPG is selected for further implementation. As the training moving average of rewards reached -17.
