@@ -1,43 +1,66 @@
 # Library Imports
 import numpy as np
 import tensorflow as tf
+from collections import deque
+import random
 tf.random.set_seed(0)
 np.random.seed(0)
 
 
-class ReplayBuffer:
-    """Defines the Buffer dataset from which the agent learns"""
+class OUNoise:
+    def __init__(self, action_dimension, mu=0, theta=0.015, sigma=0.03):
+        self.action_dimension = action_dimension
+        self.mu = mu
+        self.theta = theta
+        self.sigma = sigma
+        self.state = np.ones(self.action_dimension) * self.mu
+        self.reset()
 
-    def __init__(self, max_size, input_shape, dim_actions):
-        self.mem_size = max_size
-        self.mem_cntr = 0
-        self.state_memory = np.zeros((self.mem_size, input_shape),
-                                     dtype=np.float64)
-        self.new_state_memory = np.zeros((self.mem_size, input_shape),
-                                         dtype=np.float64)
-        self.action_memory = np.zeros((self.mem_size, dim_actions),
-                                      dtype=np.float64)
-        self.reward_memory = np.zeros(self.mem_size, dtype=np.float64)
-        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
+    def reset(self):
+        self.state = np.ones(self.action_dimension) * self.mu
+
+    def __call__(self):
+        x = self.state
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
+        self.state = x + dx
+        return self.state
+
+
+class PrioritizedReplayBuffer():
+    def __init__(self, maxlen, alpha, beta):
+        self.buffer = deque(maxlen=maxlen)
+        self.priorities = deque(maxlen=maxlen)
+        self.alpha = alpha
+        self.beta = beta
 
     def store_transition(self, state, action, reward, new_state, done):
-        index = self.mem_cntr % self.mem_size
-        self.state_memory[index] = state
-        self.new_state_memory[index] = new_state
-        self.action_memory[index] = action
-        self.reward_memory[index] = reward
-        self.terminal_memory[index] = done
-        self.mem_cntr += 1
+        self.buffer.append((state, action, reward, new_state, done))
+        self.priorities.append(max(self.priorities, default=1))
+        self.mem_cntr = len(self.buffer)
 
-    def sample_buffer(self, batch_size):
-        max_mem = min(self.mem_cntr, self.mem_size)
-        batch = np.random.choice(max_mem, batch_size, replace=False)
-        states = self.state_memory[batch]
-        _states = self.new_state_memory[batch]
-        actions = self.action_memory[batch]
-        rewards = self.reward_memory[batch]
-        dones = self.terminal_memory[batch]
-        return states, actions, rewards, _states, dones
+    def get_probabilities(self):
+        scaled_priorities = np.array(self.priorities) ** self.alpha
+        sample_probabilities = scaled_priorities / sum(scaled_priorities)
+        return sample_probabilities
+
+    def get_weights(self, probabilities):
+        weights = np.power(len(self.buffer), -self.beta) * \
+            np.power(probabilities, -self.beta)
+        weights_normalized = weights / max(weights)
+        return weights_normalized
+
+    def sample(self, batch_size):
+        sample_size = min(len(self.buffer), batch_size)
+        sample_probs = self.get_probabilities()
+        sample_indices = random.choices(
+            range(len(self.buffer)), k=sample_size, weights=sample_probs)
+        samples = np.array(self.buffer)[sample_indices]
+        weights = self.get_weights(sample_probs[sample_indices])
+        return map(list, zip(*samples)), weights, sample_indices
+
+    def set_priorities(self, indices, errors, offset=1e-6):
+        for i, e in zip(indices, errors):
+            self.priorities[i] = abs(e) + offset
 
 
 class Critic(tf.keras.Model):
@@ -51,7 +74,7 @@ class Critic(tf.keras.Model):
 
         self.H1 = tf.keras.layers.Dense(density, activation='relu')
         self.H2 = tf.keras.layers.Dense(density, activation='relu')
-        self.drop = tf.keras.layers.Dropout(0.2)
+        self.drop = tf.keras.layers.Dropout(0.1)
         self.H3 = tf.keras.layers.Dense(density, activation='relu')
         self.H4 = tf.keras.layers.Dense(density, activation='relu')
         self.Q = tf.keras.layers.Dense(1, activation=None)
@@ -80,7 +103,7 @@ class Actor(tf.keras.Model):
 
         self.H1 = tf.keras.layers.Dense(density, activation='relu')
         self.H2 = tf.keras.layers.Dense(density, activation='relu')
-        self.drop = tf.keras.layers.Dropout(0.2)
+        self.drop = tf.keras.layers.Dropout(0.1)
         self.H3 = tf.keras.layers.Dense(density, activation='relu')
         self.H4 = tf.keras.layers.Dense(density, activation='relu')
         self.mu = tf.keras.layers.Dense(n_actions, activation='tanh')
@@ -97,41 +120,37 @@ class Actor(tf.keras.Model):
 
 
 class Agent:
-    def __init__(self, env, obs_shape, n_actions, datapath, alpha=0.0001,
+    def __init__(self, env, datapath, alpha=0.0001,
                  beta=0.001, gamma=0.99, max_size=250000, tau=0.005,
-                 batch_size=128, noise=0.1):
+                 batch_size=32, per_alpha=0.7, per_beta=0.5):
 
         self.env = env
         self.gamma = gamma
         self.tau = tau
-        self.n_actions = n_actions
-        self.obs_shape = obs_shape
+        self.n_actions = env.action_space.shape[0]
+        self.obs_shape = env.observation_space.shape[0]
         self.datapath = datapath
-        self.memory = ReplayBuffer(max_size, self.obs_shape, self.n_actions)
+        self.per_beta = per_beta
+        self.memory = PrioritizedReplayBuffer(max_size, per_alpha, per_beta)
 
         self.batch_size = batch_size
-        self.noise = noise
-        self.max_action = env.action_space.high[0]
-        self.min_action = env.action_space.low[0]
+        self.noise = OUNoise(self.n_actions)
+        self.max_action = env.action_space.high
+        self.min_action = env.action_space.low
 
         self.actor = Actor(self.n_actions, name='actor')
         self.critic = Critic(name='critic')
         self.target_actor = Actor(self.n_actions, name='target_actor')
         self.target_critic = Critic(name='target_critic')
 
-        self.actor.compile(optimizer=tf.keras.optimizers.Adam(
-            learning_rate=alpha))
-        self.critic.compile(optimizer=tf.keras.optimizers.Adam(
-            learning_rate=beta))
-        self.target_actor.compile(optimizer=tf.keras.optimizers.Adam(
-            learning_rate=alpha))
-        self.target_critic.compile(optimizer=tf.keras.optimizers.Adam(
-            learning_rate=beta))
-        self.update_networks(tau=1)
+        self.actor.compile(tf.keras.optimizers.Adam(alpha))
+        self.critic.compile(tf.keras.optimizers.Adam(beta))
+        self.target_actor.compile(tf.keras.optimizers.Adam(alpha))
+        self.target_critic.compile(tf.keras.optimizers.Adam(beta))
+        self.update_networks()
 
-    def update_networks(self, tau=None):
-        if tau is None:
-            tau = self.tau
+    def update_networks(self):
+        tau = self.tau
 
         weights = []
         targets = self.target_actor.weights
@@ -167,25 +186,30 @@ class Agent:
     def choose_action(self, observation):
         state = tf.convert_to_tensor([observation], dtype=tf.float32)
         actions = self.actor(state)
-        actions += tf.random.normal(shape=[self.n_actions], mean=0.0,
-                                    stddev=self.noise)
+        actions += self.noise()
         actions = tf.clip_by_value(actions, self.min_action, self.max_action)
-        return actions[0]
+        return actions[0].numpy()
 
     def optimize(self):
         if self.memory.mem_cntr < self.batch_size:
             return
 
-        state, action, reward, new_state, done =\
-            self.memory.sample_buffer(self.batch_size)
+        experience, weights, indices = self.memory.sample(self.batch_size)
+        state, action, reward, new_state, done = experience
+
+        state = np.vstack(state)
+        new_state = np.vstack(new_state)
+        action = np.vstack(action)
+        done = np.array(done)
+        reward = np.array(reward)
 
         with tf.GradientTape() as tape:
-            target_actions = self.target_actor(new_state)
-            critic_value_ = tf.squeeze(
-                self.target_critic(new_state, target_actions), 1)
-            critic_value = tf.squeeze(self.critic(state, action), 1)
-            target = reward + self.gamma * critic_value_ * (1.0 - done)
-            critic_loss = tf.keras.losses.MSE(target, critic_value)
+            _mui = self.target_actor(new_state)
+            _Q = tf.squeeze(self.target_critic(new_state, _mui), 1)
+            Q = tf.squeeze(self.critic(state, action), 1)
+            TD_error = reward + (self.gamma * _Q) * (1.0 - done)
+            critic_loss = tf.keras.losses.mse(
+                weights * tf.math.square(TD_error), Q)
 
         critic_network_gradient = tape.gradient(
             critic_loss, self.critic.trainable_variables)
@@ -201,4 +225,7 @@ class Agent:
             actor_loss, self.actor.trainable_variables)
         self.actor.optimizer.apply_gradients(zip(
             actor_network_gradient, self.actor.trainable_variables))
+
+        self.memory.set_priorities(indices, TD_error.numpy())
+
         self.update_networks()
