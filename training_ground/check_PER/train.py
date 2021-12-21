@@ -13,14 +13,14 @@ if __name__ == '__main__':
     # Init. Datapath
     data_path = os.path.dirname(os.path.abspath(__file__)) + '/data/'
 
-    # Init. Agent
-    agent = Agent(env, data_path)
-
     # Init. Training
     best_score = -np.inf
     score_history = []
     avg_history = []
-    n_games = 100000
+    n_games = 2000
+
+    # Init. Agent
+    agent = Agent(env, data_path, n_games)
 
     for i in range(n_games):
         score = 0
@@ -41,11 +41,7 @@ if __name__ == '__main__':
             next_q, next_y, next_target = next_OBS.values()
             next_obs = np.concatenate((next_q, next_y, next_target))
 
-            agent.memory.store_transition(obs,
-                                          action,
-                                          reward,
-                                          next_obs,
-                                          done)
+            agent.memory.add(obs, action, reward, next_obs, done)
 
             OBS = copy.deepcopy(next_OBS)
             score += reward

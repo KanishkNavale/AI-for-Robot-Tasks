@@ -1,8 +1,12 @@
 # Library Imports
+from copy import copy
 import numpy as np
+from numpy.lib import utils
 import tensorflow as tf
 from collections import deque
 import random
+from replay_buffers.PER import PrioritizedReplayBuffer
+from replay_buffers.utils import LinearSchedule
 tf.random.set_seed(0)
 np.random.seed(0)
 
@@ -25,42 +29,6 @@ class OUNoise:
         dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
         self.state = x + dx
         return self.state * self.scale
-
-
-class PrioritizedReplayBuffer():
-    def __init__(self, maxlen, alpha=0.7, beta=0.5):
-        self.buffer = deque(maxlen=maxlen)
-        self.priorities = deque(maxlen=maxlen)
-        self.alpha = alpha
-        self.beta = beta
-
-    def store_transition(self, state, action, reward, new_state, done):
-        self.buffer.append((state, action, reward, new_state, done))
-        self.priorities.append(max(self.priorities, default=1))
-        self.mem_cntr = len(self.buffer)
-
-    def get_probabilities(self):
-        scaled_priorities = np.power(np.array(self.priorities), self.alpha)
-        sample_probabilities = scaled_priorities / sum(scaled_priorities)
-        return sample_probabilities
-
-    def get_weights(self, probabilities):
-        weights = np.power(len(self.buffer) * probabilities, -self.beta)
-        weights_normalized = weights / max(weights)
-        return weights_normalized
-
-    def sample(self, batch_size):
-        sample_size = min(len(self.buffer), batch_size)
-        sample_probs = self.get_probabilities()
-        sample_indices = random.choices(
-            range(len(self.buffer)), k=sample_size, weights=sample_probs)
-        samples = np.array(self.buffer)[sample_indices]
-        weights = self.get_weights(sample_probs[sample_indices])
-        return map(list, zip(*samples)), weights, sample_indices
-
-    def set_priorities(self, indices, errors, offset=1e-6):
-        for i, e in zip(indices, errors):
-            self.priorities[i] = abs(e) + offset
 
 
 class Critic(tf.keras.Model):
@@ -120,9 +88,9 @@ class Actor(tf.keras.Model):
 
 
 class Agent:
-    def __init__(self, env, datapath, alpha=0.0001,
+    def __init__(self, env, datapath, n_games, alpha=0.0001,
                  beta=0.001, gamma=0.99, max_size=250000, tau=0.005,
-                 batch_size=64, noise='normal', per_alpha=0.7, per_beta=0.5):
+                 batch_size=64, noise='param', per_alpha=0.6, per_beta=0.4):
 
         self.env = env
         self.gamma = gamma
@@ -130,13 +98,15 @@ class Agent:
         self.n_actions = env.action_space.shape[0]
         self.obs_shape = env.observation_space.shape[0]
         self.datapath = datapath
-        self.per_beta = per_beta
-        self.memory = PrioritizedReplayBuffer(max_size, per_alpha, per_beta)
+        self.n_games = n_games
+        self.optim_steps = 0
+        self.memory = PrioritizedReplayBuffer(max_size, per_alpha)
+        self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.9)
 
         self.batch_size = batch_size
         self.noise = noise
-        self.max_action = env.action_space.high[0]
-        self.min_action = env.action_space.low[0]
+        self.max_action = env.action_space.high
+        self.min_action = env.action_space.low
 
         self.actor = Actor(self.n_actions, name='actor')
         self.critic = Critic(name='critic')
@@ -158,6 +128,10 @@ class Agent:
             self.scalar_decay = 0.99
             self.desired_distance = 0.1
             self.noisy_actor = Actor(self.n_actions, name='noisy_actor')
+            # Set noisy actor first time
+            obs = env.observation_space.sample()
+            state = tf.convert_to_tensor([obs], dtype=tf.float32)
+            self.noisy_actor(state)
 
         self.update_networks()
 
@@ -177,7 +151,7 @@ class Agent:
         self.target_critic.set_weights(weights)
 
     def store(self, state, action, reward, new_state, done):
-        self.memory.store_transition(state, action, reward, new_state, done)
+        self.memory.add(state, action, reward, new_state, done)
 
     def save_models(self):
         self.actor.save_weights(self.datapath + self.actor.checkpoint)
@@ -206,16 +180,12 @@ class Agent:
             action += self.noise()
 
         elif self.noise == 'param':
-            self.noisy_actor(state)
             weights = []
             for weight in self.actor.weights:
-                weights.append(weight)
+                noise = tf.random.normal(
+                    shape=weight.shape, stddev=self.scalar)
+                weights.append(weight + noise)
             self.noisy_actor.set_weights(weights)
-
-            for layer in self.noisy_actor.trainable_weights:
-                noise = np.random.normal(
-                    loc=0.0, scale=self.scalar, size=layer.shape)
-                layer.assign_add(noise)
 
             action_noised = self.noisy_actor(state)
             distance = np.sqrt(np.mean(np.square(action - action_noised)))
@@ -230,24 +200,37 @@ class Agent:
         return action[0].numpy()
 
     def optimize(self):
-        if self.memory.mem_cntr < self.batch_size:
+        if len(self.memory._storage) < self.batch_size:
             return
 
-        experience, weights, indices = self.memory.sample(self.batch_size)
-        state, action, reward, new_state, done = experience
+        beta = self.beta_scheduler.value(self.optim_steps)
+        state, action, reward, new_state, done, weights, indices = self.memory.sample(
+            self.batch_size, beta)
 
         state = np.vstack(state)
         new_state = np.vstack(new_state)
         action = np.vstack(action)
-        done = np.array(done)
-        reward = np.array(reward)
+        done = np.vstack(done)
+        reward = np.vstack(reward)
+
+        weights = np.sqrt(np.vstack(weights))
 
         with tf.GradientTape() as tape:
-            _mui = self.target_actor(new_state)
-            _Q = tf.squeeze(self.target_critic(new_state, _mui), 1)
-            Q = tf.squeeze(self.critic(state, action), 1)
-            mui = reward + (self.gamma * _Q) * (1.0 - done)
-            critic_loss = tf.keras.losses.mse(mui, Q)
+            # Compute the Q value estimate of the target network
+            Q_target = self.target_critic(
+                new_state, self.target_actor(new_state))
+            # Compute Y
+            Y = reward + ((1 - done) * self.gamma * Q_target)
+            # Compute Q value estimate of critic
+            Q = self.critic(state, action)
+            # Calculate TD errors
+            TD_errors = (Y - Q)
+            # Weight TD errors
+            weighted_TD_errors = TD_errors * weights
+            # Create a zero tensor
+            zero_tensor = tf.zeros(weighted_TD_errors.shape)
+            # Compute critic loss, MSE of weighted TD_r
+            critic_loss = tf.keras.losses.mse(weighted_TD_errors, zero_tensor)
 
         critic_network_gradient = tape.gradient(
             critic_loss, self.critic.trainable_variables)
@@ -255,16 +238,18 @@ class Agent:
             critic_network_gradient, self.critic.trainable_variables))
 
         with tf.GradientTape() as tape:
-            new_policy_actions = self.actor(state)
-            actor_loss = -self.critic(state, new_policy_actions)
-            actor_loss = tf.math.reduce_mean(actor_loss)
+            actor_loss = - \
+                tf.math.reduce_mean(self.critic(state, self.actor(state)))
 
         actor_network_gradient = tape.gradient(
             actor_loss, self.actor.trainable_variables)
         self.actor.optimizer.apply_gradients(zip(
             actor_network_gradient, self.actor.trainable_variables))
 
-        self.memory.set_priorities(
-            indices, (weights * critic_loss).numpy())
+        td_errors = TD_errors.numpy()
+        new_priorities = np.abs(td_errors) + 1e-6
+        self.memory.update_priorities(indices, new_priorities)
 
         self.update_networks()
+
+        self.optim_steps += 1.0
