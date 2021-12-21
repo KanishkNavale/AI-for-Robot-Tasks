@@ -9,7 +9,7 @@ import numpy as np
 class RAI_Env(gym.Env):
     """Custom Environment that follows gym interface"""
 
-    def __init__(self):
+    def __init__(self, reward_type='sparse'):
         super(RAI_Env, self).__init__()
 
         # Load the robot configuration file
@@ -17,26 +17,23 @@ class RAI_Env(gym.Env):
         self.K.clear()
         self.K.addFile('panda/panda_fixGripper.g')
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
+        self.frame = 'gripperCenter'
+        self.IK_steps = 5
 
         # Init. gym environment
+        self.reward_type = reward_type
         self.max_episode_length = 250
-        self.tau = 0.001
+        self.tau = 1e-2
 
         # Init. spaces
         self.action_space = spaces.Box(
-            low=np.array([-2.8973, -1.7628, -2.8973, -3.0718,
-                          -2.8973, -0.0175, 2.8973]),
-            high=np.array([2.8973, 1.7628, 2.8973, -0.0698,
-                           2.8973, 3.7525, 2.8973]),
+            low=np.array([-0.5, -0.5, 0.3]),
+            high=np.array([0.5, 0.5, 0.5]),
             dtype=np.float64)
 
         self.observation_space = spaces.Box(
-            low=np.array([-2.8973, -1.7628, -2.8973, -3.0718,
-                          -2.8973, -0.0175, 2.8973,
-                          -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]),
-            high=np.array([2.8973, 1.7628, 2.8973, -0.0698,
-                           2.8973, 3.7525, 2.8973,
-                           1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+            low=np.array([-0.5, -0.5, 0.3, -0.5, -0.5, 0.3]),
+            high=np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5]),
             dtype=np.float64)
 
         # Goal Indicator
@@ -72,9 +69,9 @@ class RAI_Env(gym.Env):
 
         # Move the robot to random position
         self.K.setJointState(self._random_config_space())
-        return state['y']
+        return np.clip(state['y'], np.array([-0.5, -0.5, 0.3]), np.array([0.5, 0.5, 0.5]))
 
-    def _current_state(self, frame: str = 'gripperCenter') -> Dict:
+    def _current_state(self) -> Dict:
         """
         Reads and Returns feature states of a robot frame.
 
@@ -84,12 +81,10 @@ class RAI_Env(gym.Env):
         Returns:
             Diction
         """
-        q = self.K.getJointState()
-        F = self.K.feature(ry.FS.position, [frame])
+        F = self.K.feature(ry.FS.position, [self.frame])
         y = F.eval(self.K)[0]
 
         state = {
-            'q': q,
             'y': y,
             'target': self.random_target
         }
@@ -103,10 +98,18 @@ class RAI_Env(gym.Env):
         Args:
             signal (np.ndarray): Actuating signal.
         """
-        self.S.step(signal, self.tau, ry.ControlMode.position)
+        for _ in range(self.IK_steps):
+            q = self.K.getJointState()
+            F = self.K.feature(ry.FS.position, ['gripperCenter'])
+            y, J = F.eval(self.K)
+
+            q += np.linalg.pinv(J) @ (signal - y)
+
+            self.S.step(q, self.tau, ry.ControlMode.position)
+
         self.current_episode += 1
 
-    def _compute_reward(self, next_state: np.ndarray, target_state: np.ndarray):
+    def compute_reward(self, next_state: np.ndarray, target_state: np.ndarray):
         """
         Compute Reward for the environment.
 
@@ -118,14 +121,20 @@ class RAI_Env(gym.Env):
             np.float64: Reward
             np.bool_: Done
         """
-        reward = -np.linalg.norm(target_state-next_state)
 
-        if np.allclose(self.random_target, next_state):
+        if np.allclose(target_state, next_state):
             done = True
-        elif self.current_episode == self.max_episode_length:
-            done = True
+            reward = 0.0
         else:
-            done = False
+            if self.reward_type == 'dense':
+                reward = -np.linalg.norm(target_state - next_state)
+                done = False
+            elif self.reward_type == 'sparse':
+                reward = -1.0
+                done = False
+
+        if self.current_episode == self.max_episode_length:
+            done = True
 
         return reward, done
 
@@ -139,7 +148,7 @@ class RAI_Env(gym.Env):
         self._actuate(action)
         next_state = self._current_state()
 
-        reward, done = self._compute_reward(
+        reward, done = self.compute_reward(
             next_state['y'], self.random_target)
 
         return next_state, reward, done
