@@ -8,8 +8,9 @@ np.random.seed(0)
 
 
 class OUNoise:
-    def __init__(self, action_dimension, mu=0, theta=0.015, sigma=0.03):
+    def __init__(self, action_dimension, scale=0.1, mu=0, theta=0.15, sigma=0.2):
         self.action_dimension = action_dimension
+        self.scale = scale
         self.mu = mu
         self.theta = theta
         self.sigma = sigma
@@ -23,11 +24,11 @@ class OUNoise:
         x = self.state
         dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
         self.state = x + dx
-        return self.state
+        return self.state * self.scale
 
 
 class PrioritizedReplayBuffer():
-    def __init__(self, maxlen, alpha, beta):
+    def __init__(self, maxlen, alpha=0.7, beta=0.5):
         self.buffer = deque(maxlen=maxlen)
         self.priorities = deque(maxlen=maxlen)
         self.alpha = alpha
@@ -39,13 +40,12 @@ class PrioritizedReplayBuffer():
         self.mem_cntr = len(self.buffer)
 
     def get_probabilities(self):
-        scaled_priorities = np.array(self.priorities) ** self.alpha
+        scaled_priorities = np.power(np.array(self.priorities), self.alpha)
         sample_probabilities = scaled_priorities / sum(scaled_priorities)
         return sample_probabilities
 
     def get_weights(self, probabilities):
-        weights = np.power(len(self.buffer), -self.beta) * \
-            np.power(probabilities, -self.beta)
+        weights = np.power(len(self.buffer) * probabilities, -self.beta)
         weights_normalized = weights / max(weights)
         return weights_normalized
 
@@ -122,7 +122,7 @@ class Actor(tf.keras.Model):
 class Agent:
     def __init__(self, env, datapath, alpha=0.0001,
                  beta=0.001, gamma=0.99, max_size=250000, tau=0.005,
-                 batch_size=32, per_alpha=0.7, per_beta=0.5):
+                 batch_size=64, noise='normal', per_alpha=0.7, per_beta=0.5):
 
         self.env = env
         self.gamma = gamma
@@ -134,9 +134,9 @@ class Agent:
         self.memory = PrioritizedReplayBuffer(max_size, per_alpha, per_beta)
 
         self.batch_size = batch_size
-        self.noise = OUNoise(self.n_actions)
-        self.max_action = env.action_space.high
-        self.min_action = env.action_space.low
+        self.noise = noise
+        self.max_action = env.action_space.high[0]
+        self.min_action = env.action_space.low[0]
 
         self.actor = Actor(self.n_actions, name='actor')
         self.critic = Critic(name='critic')
@@ -147,6 +147,18 @@ class Agent:
         self.critic.compile(tf.keras.optimizers.Adam(beta))
         self.target_actor.compile(tf.keras.optimizers.Adam(alpha))
         self.target_critic.compile(tf.keras.optimizers.Adam(beta))
+
+        if self.noise == 'normal':
+            self.noise_param = 0.1
+        elif self.noise == 'ou':
+            self.noise = OUNoise(self.n_actions)
+        elif self.noise == 'param':
+            self.distances = []
+            self.scalar = 0.01
+            self.scalar_decay = 0.99
+            self.desired_distance = 0.1
+            self.noisy_actor = Actor(self.n_actions, name='noisy_actor')
+
         self.update_networks()
 
     def update_networks(self):
@@ -185,10 +197,37 @@ class Agent:
 
     def choose_action(self, observation):
         state = tf.convert_to_tensor([observation], dtype=tf.float32)
-        actions = self.actor(state)
-        actions += self.noise()
-        actions = tf.clip_by_value(actions, self.min_action, self.max_action)
-        return actions[0].numpy()
+        action = self.actor(state)
+
+        if self.noise == 'normal':
+            action += tf.random.normal([self.n_actions], 0.0, self.noise_param)
+
+        elif self.noise == 'ou':
+            action += self.noise()
+
+        elif self.noise == 'param':
+            self.noisy_actor(state)
+            weights = []
+            for weight in self.actor.weights:
+                weights.append(weight)
+            self.noisy_actor.set_weights(weights)
+
+            for layer in self.noisy_actor.trainable_weights:
+                noise = np.random.normal(
+                    loc=0.0, scale=self.scalar, size=layer.shape)
+                layer.assign_add(noise)
+
+            action_noised = self.noisy_actor(state)
+            distance = np.sqrt(np.mean(np.square(action - action_noised)))
+            self.distances.append(distance)
+            if distance > self.desired_distance:
+                self.scalar *= self.scalar_decay
+            if distance < self.desired_distance:
+                self.scalar /= self.scalar_decay
+            action += action_noised
+
+        action = tf.clip_by_value(action, self.min_action, self.max_action)
+        return action[0].numpy()
 
     def optimize(self):
         if self.memory.mem_cntr < self.batch_size:
@@ -207,9 +246,8 @@ class Agent:
             _mui = self.target_actor(new_state)
             _Q = tf.squeeze(self.target_critic(new_state, _mui), 1)
             Q = tf.squeeze(self.critic(state, action), 1)
-            TD_error = reward + (self.gamma * _Q) * (1.0 - done)
-            critic_loss = tf.keras.losses.mse(
-                weights * tf.math.square(TD_error), Q)
+            mui = reward + (self.gamma * _Q) * (1.0 - done)
+            critic_loss = tf.keras.losses.mse(mui, Q)
 
         critic_network_gradient = tape.gradient(
             critic_loss, self.critic.trainable_variables)
@@ -226,6 +264,7 @@ class Agent:
         self.actor.optimizer.apply_gradients(zip(
             actor_network_gradient, self.actor.trainable_variables))
 
-        self.memory.set_priorities(indices, TD_error.numpy())
+        self.memory.set_priorities(
+            indices, (weights * critic_loss).numpy())
 
         self.update_networks()
