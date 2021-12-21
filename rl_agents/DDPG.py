@@ -7,6 +7,7 @@ from collections import deque
 import random
 from replay_buffers.PER import PrioritizedReplayBuffer
 from replay_buffers.utils import LinearSchedule
+import gc
 tf.random.set_seed(0)
 np.random.seed(0)
 
@@ -89,19 +90,20 @@ class Actor(tf.keras.Model):
 
 class Agent:
     def __init__(self, env, datapath, n_games, alpha=0.0001,
-                 beta=0.001, gamma=0.99, max_size=250000, tau=0.005,
-                 batch_size=64, noise='param', per_alpha=0.6, per_beta=0.4):
+                 beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
+                 noise='normal', per_alpha=0.6, per_beta=0.4):
 
         self.env = env
-        self.gamma = gamma
-        self.tau = tau
+        self.gamma = tf.convert_to_tensor([gamma], dtype=tf.float32)
+        self.tau = tf.convert_to_tensor([tau], dtype=tf.float32)
         self.n_actions = env.action_space.shape[0]
         self.obs_shape = env.observation_space.shape[0]
         self.datapath = datapath
         self.n_games = n_games
         self.optim_steps = 0
-        self.memory = PrioritizedReplayBuffer(max_size, per_alpha)
-        self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.9)
+        self.max_size = int(env.max_episode_length * n_games)
+        self.memory = PrioritizedReplayBuffer(self.max_size, per_alpha)
+        self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.99)
 
         self.batch_size = batch_size
         self.noise = noise
@@ -125,15 +127,23 @@ class Agent:
         elif self.noise == 'param':
             self.distances = []
             self.scalar = 0.01
-            self.scalar_decay = 0.99
+            self.scalar_decay = 0.1
             self.desired_distance = 0.1
             self.noisy_actor = Actor(self.n_actions, name='noisy_actor')
-            # Set noisy actor first time
+            # Fire-up 'noisy_actor' to set params.
             obs = env.observation_space.sample()
-            state = tf.convert_to_tensor([obs], dtype=tf.float32)
+            state = tf.convert_to_tensor([obs], dtype=tf.float64)
             self.noisy_actor(state)
 
         self.update_networks()
+
+    def update_noisy_actor(self):
+        weights = []
+        for weight in self.actor.weights:
+            noise = tf.random.normal(
+                shape=weight.shape, stddev=self.scalar)
+            weights.append(weight + noise)
+        self.noisy_actor.set_weights(weights)
 
     def update_networks(self):
         tau = self.tau
@@ -170,7 +180,7 @@ class Agent:
                                         self.target_critic.checkpoint)
 
     def choose_action(self, observation):
-        state = tf.convert_to_tensor([observation], dtype=tf.float32)
+        state = tf.convert_to_tensor([observation], dtype=tf.float64)
         action = self.actor(state)
 
         if self.noise == 'normal':
@@ -180,15 +190,9 @@ class Agent:
             action += self.noise()
 
         elif self.noise == 'param':
-            weights = []
-            for weight in self.actor.weights:
-                noise = tf.random.normal(
-                    shape=weight.shape, stddev=self.scalar)
-                weights.append(weight + noise)
-            self.noisy_actor.set_weights(weights)
-
+            self.update_noisy_actor()
             action_noised = self.noisy_actor(state)
-            distance = np.sqrt(np.mean(np.square(action - action_noised)))
+            distance = tf.linalg.norm(action - action_noised)
             self.distances.append(distance)
             if distance > self.desired_distance:
                 self.scalar *= self.scalar_decay
@@ -207,20 +211,21 @@ class Agent:
         state, action, reward, new_state, done, weights, indices = self.memory.sample(
             self.batch_size, beta)
 
-        state = np.vstack(state)
-        new_state = np.vstack(new_state)
-        action = np.vstack(action)
-        done = np.vstack(done)
-        reward = np.vstack(reward)
-
-        weights = np.sqrt(np.vstack(weights))
+        state = tf.convert_to_tensor(np.vstack(state), dtype=tf.float64)
+        action = tf.convert_to_tensor(np.vstack(action), dtype=tf.float64)
+        done = tf.convert_to_tensor(np.vstack(1 - done), dtype=tf.float32)
+        reward = tf.convert_to_tensor(np.vstack(reward), dtype=tf.float32)
+        weights = tf.convert_to_tensor(
+            np.sqrt(np.vstack(weights)), dtype=tf.float32)
+        new_state = tf.convert_to_tensor(
+            np.vstack(new_state), dtype=tf.float64)
 
         with tf.GradientTape() as tape:
             # Compute the Q value estimate of the target network
             Q_target = self.target_critic(
                 new_state, self.target_actor(new_state))
             # Compute Y
-            Y = reward + ((1 - done) * self.gamma * Q_target)
+            Y = reward + (done * [self.gamma] * Q_target)
             # Compute Q value estimate of critic
             Q = self.critic(state, action)
             # Calculate TD errors
