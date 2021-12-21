@@ -84,6 +84,14 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
     * Running env. with veolicty control signals has a hard time converging.
 
+4. December 21, 2021
+
+    * Tested DDPG with Prioritized Experience Replay & Parametric Noise.
+    * Training Log,
+        |Training Profile|Distance Error|
+        |:--:|:--:|
+        |<img src="training_ground/check_PER/data/Training_Profile.png" width="350">| <img src="training_ground/check_PER/data/Distance_Profile.png" width="350">|
+
 ## Developers
 
 * Olga Klimashevska

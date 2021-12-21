@@ -121,7 +121,7 @@ class Agent:
         self.target_critic.compile(tf.keras.optimizers.Adam(beta))
 
         if self.noise == 'normal':
-            self.noise_param = 0.1
+            self.noise_param = 0.01
         elif self.noise == 'ou':
             self.noise = OUNoise(self.n_actions)
         elif self.noise == 'param':
