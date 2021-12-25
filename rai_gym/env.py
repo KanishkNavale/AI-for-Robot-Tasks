@@ -1,5 +1,6 @@
 import libry as ry
 from time import sleep
+import os
 import gym
 from gym import spaces
 from typing import Dict
@@ -15,7 +16,7 @@ class RAI_Env(gym.Env):
         # Load the robot configuration file
         self.K = ry.Config()
         self.K.clear()
-        self.K.addFile('panda/panda_fixGripper.g')
+        self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
         self.frame = 'gripperCenter'
         self.IK_steps = 5
