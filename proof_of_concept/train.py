@@ -1,7 +1,6 @@
 # Library Imports
 import gym
 import numpy as np
-import sys
 import os
 import copy
 from rl_agents.DDPG import Agent
@@ -10,7 +9,7 @@ from rl_agents.DDPG import Agent
 if __name__ == "__main__":
 
     # Init. datapath
-    data_path = os.getcwd() + '/proof_of_concept/reach/data/'
+    data_path = os.path.dirname(os.path.abspath(__file__)) + '/data/'
 
     # Load the environment
     env = gym.make('FetchReach-v1')

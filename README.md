@@ -7,9 +7,9 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 1. OpenAI Gym Environments,
 
     * 'FetchReach-v1': The best agent is DDPG.
-        <p align="left">
-            <img src="proof_of_concept/reach/data/Training Profile.png" width="350">
-        </p>
+        |||
+        |:--:|:--:|
+        |<img src="https://github.com/KanishkNavale/Trajectory-Planning-using-HER-and-Reward-Engineering/blob/master/HER/data/test.gif?raw=true" width="300">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
 
 ## Repository Setup Instructions
 
