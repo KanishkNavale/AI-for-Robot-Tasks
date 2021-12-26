@@ -38,3 +38,12 @@
         |Training Profile|Distance Error|
         |:--:|:--:|
         |<img src="training_ground/check_PER/data/Training_Profile.png" width="350">| <img src="training_ground/check_PER/data/Distance_Profile.png" width="350">|
+
+5. December 26, 2021
+
+    * Designed a robot scene with SolidWorks and exported the '.urdf' files into the environment.
+    * Have an issue to reach position on the table top as the actor's activation function is limited to [-1.0, 1.0].
+    * Normalization of states and Denormalization is required.
+    * Reach Issue,
+
+        <img src="robot_scene/reach_issue.png" width="250">

@@ -91,7 +91,7 @@ class Actor(tf.keras.Model):
 class Agent:
     def __init__(self, env, datapath, n_games, alpha=0.0001,
                  beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
-                 noise='normal', per_alpha=0.6, per_beta=0.4):
+                 noise='norm', per_alpha=0.6, per_beta=0.4):
 
         self.env = env
         self.gamma = tf.convert_to_tensor([gamma], dtype=tf.float32)
@@ -121,7 +121,7 @@ class Agent:
         self.target_critic.compile(tf.keras.optimizers.Adam(beta))
 
         if self.noise == 'normal':
-            self.noise_param = 0.01
+            self.noise_param = 0.1
         elif self.noise == 'ou':
             self.noise = OUNoise(self.n_actions)
         elif self.noise == 'param':
@@ -215,8 +215,7 @@ class Agent:
         action = tf.convert_to_tensor(np.vstack(action), dtype=tf.float64)
         done = tf.convert_to_tensor(np.vstack(1 - done), dtype=tf.float32)
         reward = tf.convert_to_tensor(np.vstack(reward), dtype=tf.float32)
-        weights = tf.convert_to_tensor(
-            np.sqrt(np.vstack(weights)), dtype=tf.float32)
+        weights = tf.convert_to_tensor(np.vstack(weights), dtype=tf.float32)
         new_state = tf.convert_to_tensor(
             np.vstack(new_state), dtype=tf.float64)
 
@@ -231,7 +230,7 @@ class Agent:
             # Calculate TD errors
             TD_errors = (Y - Q)
             # Weight TD errors
-            weighted_TD_errors = TD_errors * weights
+            weighted_TD_errors = tf.math.sqrt(weights) * TD_errors
             # Create a zero tensor
             zero_tensor = tf.zeros(weighted_TD_errors.shape)
             # Compute critic loss, MSE of weighted TD_r

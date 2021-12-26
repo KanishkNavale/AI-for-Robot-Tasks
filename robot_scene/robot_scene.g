@@ -50,5 +50,5 @@ camera_stand (camera_stand){
 Include 'panda/panda_fixGripper.g'
 
 joint (pedestal panda_link0){
-    joint:rigid Q:<t(0 0.57 0) r(-90 90 0 1)>
+    joint:rigid Q:<t(0 0.59 -0.05) E(-1.5707 1.5707 0)>
 }
