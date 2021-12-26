@@ -25,7 +25,7 @@ if __name__ == "__main__":
     best_score = -np.inf
     score_history = []
     avg_history = []
-    n_games = 2000
+    n_games = 3000
 
     # Init. Agent
     agent = Agent(env, state_shape, action_shape, data_path, n_games)
