@@ -3,7 +3,7 @@ import gym
 import numpy as np
 import os
 import copy
-from rl_agents.DDPG import Agent
+from DDPG import Agent
 
 # Main script pointer
 if __name__ == "__main__":
@@ -21,14 +21,14 @@ if __name__ == "__main__":
         env.observation_space['desired_goal'].shape[0]
     action_shape = env.action_space.shape[0]
 
-    # Init. Agent
-    agent = Agent(env, state_shape, action_shape, data_path)
-
     # Init. Training
     best_score = -np.inf
     score_history = []
     avg_history = []
-    n_games = 3000
+    n_games = 2000
+
+    # Init. Agent
+    agent = Agent(env, state_shape, action_shape, data_path, n_games)
 
     for i in range(n_games):
         score = 0
@@ -37,7 +37,6 @@ if __name__ == "__main__":
         # Initial Reset of Environment
         OBS = env.reset()
 
-        tick = 0
         while not done:
             # Unpack the observation
             state, curr_actgoal, curr_desgoal = OBS.values()
@@ -50,24 +49,13 @@ if __name__ == "__main__":
             next_state, next_actgoal, next_desgoal = next_OBS.values()
             next_obs = np.concatenate((next_state, next_actgoal, next_desgoal))
 
-            agent.memory.store_transition(np.concatenate((state, curr_actgoal,
-                                                          curr_desgoal)),
-                                          action,
-                                          reward,
-                                          np.concatenate((next_state,
-                                                          next_actgoal,
-                                                          next_desgoal)),
-                                          done)
+            agent.store(obs, action, reward, next_obs, done)
 
             OBS = copy.deepcopy(next_OBS)
             score += reward
-            tick += 1
-
-            if tick == env._max_episode_steps:
-                break
 
         # Optimize the agent
-        agent.optimize(1)
+        agent.optimize()
 
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])
