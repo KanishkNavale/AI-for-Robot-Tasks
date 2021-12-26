@@ -1,4 +1,4 @@
-# Call in the Solidworks Assembly
+# Call in the Solidworks Assembly ---------------------------------------------------
 world {}
 
 base (world){
@@ -24,7 +24,29 @@ camera_stand (base){
     joint:rigid
 }
 
-# Add the robot
+# Add Collision Models --------------------------------------------------------------
+
+base (base){
+    shape:mesh, color:[1, 0, 0, 1], mesh:'meshes/base.STL'
+    Q:<d(0 0 1 0) t(0 0 .0)>, noVisual, contact:-2 
+}
+
+pedestal (pedestal){
+    shape:mesh, color:[1, 0, 0, 1], mesh:'meshes/pedestal.STL'
+    Q:<d(0 0 1 0) t(0 0 .0)>, noVisual, contact:-2  
+}
+
+table (table){
+    shape:mesh, color:[1, 0, 0, 1], mesh:'meshes/table.STL'
+    Q:<d(0 0 1 0) t(0 0 .0)>, noVisual, contact:-2 
+}
+
+camera_stand (camera_stand){
+    shape:mesh, color:[1, 0, 0, 1], mesh:'meshes/camera_stand.STL'
+    Q:<d(0 0 1 0) t(0 0 .0)>, noVisual, contact:-2 
+}
+
+# Add the robot ---------------------------------------------------------------------
 Include 'panda/panda_fixGripper.g'
 
 joint (pedestal panda_link0){

@@ -1,5 +1,4 @@
 import libry as ry
-from time import sleep
 import os
 import gym
 from gym import spaces
