@@ -13,7 +13,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
 ## Repository Setup Instructions
 
-1. Clone & build [rai-python](https://github.com/MarcToussaint/rai-python) from the github following it's installation instructions.
+1. Clone & build [rai](https://github.com/MarcToussaint/rai) from the github following it's installation instructions.
 
 2. Clone this repository.
 
@@ -30,7 +30,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
     # RAI Paths
     export PATH="$HOME/rai-python/rai/bin:$PATH"
-    export PYTHONPATH="${PYTHONPATH}:$HOME/rai-python/build"
+    export PYTHONPATH="${PYTHONPATH}:/usr/local/lib/rai"
 
     # Practical Robotics Lab Project Package
     export PYTHONPATH="${PYTHONPATH}:$HOME/robotics-lab-project/"
@@ -49,48 +49,8 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     pip install -r requirements.txt
     ```
 
-## Project Progress
-
-1. December 13, 2021
-
-    * Tested DDPG & TD3 agent with RAI-gym
-    * Task: Actuate Joints to reach a task space goal position.
-    * Training Profile,
-        |DDPG|TD3|
-        |:--:|:--:|
-        |<img src="training_ground/check_reachPosition/DDPG/data/Training_Profile.png" width="350">| <img src="training_ground/check_reachPosition/TD3/data/Training_Profile.png" width="350">|
-
-    * Analysis
-        * DDPG is better than TD3.
-        * Use Priority Experience Replay Buffer (addressed as PER from now on).
-        * May be, use a different agent as J7 joint is not that active.
-
-2. December 14, 2021
-
-    * Tested DDPG & TD3 agent with RAI-gym embedding expert action lookups.
-    * Training Profile (Clipped x-range for better visibility),
-        |DDPG|TD3|
-        |:--:|:--:|
-        |<img src="training_ground/check_aidedPosition/DDPG/data/Training Profile.png" width="350">| <img src="training_ground/check_aidedPosition/TD3/data/Training Profile.png" width="350">|
-
-    * Analysis
-        * DDPG is selected for further implementation. As the training moving average of rewards reached -17.
-        * Upgrade DDPG -> DP4G with PER.
-        * Come up with the good sampling of goals. Sometimes, goal is placed in the robot or at an extremes of the workspace.
-
-3. December 19, 2021
-
-    * OUNoise does not improve exploration.
-
-    * Running env. with veolicty control signals has a hard time converging.
-
-4. December 21, 2021
-
-    * Tested DDPG with Prioritized Experience Replay & Parametric Noise.
-    * Training Log,
-        |Training Profile|Distance Error|
-        |:--:|:--:|
-        |<img src="training_ground/check_PER/data/Training_Profile.png" width="350">| <img src="training_ground/check_PER/data/Distance_Profile.png" width="350">|
+## Project Build Notes & Status
+1. Refer -> [ProjectLog](docs/project_progress.md)
 
 ## Developers
 
