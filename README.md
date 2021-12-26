@@ -50,7 +50,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     ```
 
 ## Project Build Notes & Status
-1. Refer -> [ProjectLog](docs/project_progress.md)
+[-- Link --](project_progress.md)
 
 ## Developers
 

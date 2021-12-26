@@ -1,5 +1,3 @@
-## Project Progress
-
 1. December 13, 2021
 
     * Tested DDPG & TD3 agent with RAI-gym
