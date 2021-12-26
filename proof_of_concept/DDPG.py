@@ -1,13 +1,9 @@
 # Library Imports
 from copy import copy
 import numpy as np
-from numpy.lib import utils
 import tensorflow as tf
-from collections import deque
-import random
 from replay_buffers.PER import PrioritizedReplayBuffer
 from replay_buffers.utils import LinearSchedule
-import gc
 tf.random.set_seed(0)
 np.random.seed(0)
 
@@ -89,19 +85,19 @@ class Actor(tf.keras.Model):
 
 
 class Agent:
-    def __init__(self, env, datapath, n_games, alpha=0.0001,
+    def __init__(self, env, state_shape, action_shape, data_path, n_games, alpha=0.0001,
                  beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
-                 noise='norm', per_alpha=0.6, per_beta=0.4):
+                 noise='param', per_alpha=0.6, per_beta=0.4):
 
         self.env = env
         self.gamma = tf.convert_to_tensor([gamma], dtype=tf.float32)
         self.tau = tf.convert_to_tensor([tau], dtype=tf.float32)
-        self.n_actions = env.action_space.shape[0]
-        self.obs_shape = env.observation_space.shape[0]
-        self.datapath = datapath
+        self.n_actions = action_shape
+        self.obs_shape = state_shape
+        self.datapath = data_path
         self.n_games = n_games
         self.optim_steps = 0
-        self.max_size = int(env.max_episode_length * n_games)
+        self.max_size = int(200 * n_games)
         self.memory = PrioritizedReplayBuffer(self.max_size, per_alpha)
         self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.99)
 
@@ -121,7 +117,7 @@ class Agent:
         self.target_critic.compile(tf.keras.optimizers.Adam(beta))
 
         if self.noise == 'normal':
-            self.noise_param = 0.1
+            self.noise_param = 0.01
         elif self.noise == 'ou':
             self.noise = OUNoise(self.n_actions)
         elif self.noise == 'param':
@@ -131,9 +127,7 @@ class Agent:
             self.desired_distance = 0.1
             self.noisy_actor = Actor(self.n_actions, name='noisy_actor')
             # Fire-up 'noisy_actor' to set params.
-            obs = env.observation_space.sample()
-            state = tf.convert_to_tensor([obs], dtype=tf.float64)
-            self.noisy_actor(state)
+            self.noisy_actor(tf.ones((1, self.obs_shape)))
 
         self.update_networks()
 
@@ -215,7 +209,7 @@ class Agent:
         action = tf.convert_to_tensor(np.vstack(action), dtype=tf.float64)
         done = tf.convert_to_tensor(np.vstack(1 - done), dtype=tf.float32)
         reward = tf.convert_to_tensor(np.vstack(reward), dtype=tf.float32)
-        weights = tf.convert_to_tensor(np.vstack(weights), dtype=tf.float32)
+        weights = tf.convert_to_tensor(np.ones_like(reward), dtype=tf.float32)
         new_state = tf.convert_to_tensor(
             np.vstack(new_state), dtype=tf.float64)
 
@@ -230,7 +224,7 @@ class Agent:
             # Calculate TD errors
             TD_errors = (Y - Q)
             # Weight TD errors
-            weighted_TD_errors = tf.math.sqrt(weights) * TD_errors
+            weighted_TD_errors = TD_errors * weights
             # Create a zero tensor
             zero_tensor = tf.zeros(weighted_TD_errors.shape)
             # Compute critic loss, MSE of weighted TD_r

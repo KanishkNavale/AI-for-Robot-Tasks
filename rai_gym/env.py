@@ -1,5 +1,5 @@
 import libry as ry
-from time import sleep
+import os
 import gym
 from gym import spaces
 from typing import Dict
@@ -15,7 +15,7 @@ class RAI_Env(gym.Env):
         # Load the robot configuration file
         self.K = ry.Config()
         self.K.clear()
-        self.K.addFile('panda/panda_fixGripper.g')
+        self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
         self.frame = 'gripperCenter'
         self.IK_steps = 5
@@ -24,22 +24,25 @@ class RAI_Env(gym.Env):
         self.reward_type = reward_type
         self.max_episode_length = 250
         self.tau = 1e-2
+        self.low = np.array([-0.3, -0.3, 0.59])
+        self.high = np.array([0.3, 0.3, 1.25])
 
         # Init. spaces
         self.action_space = spaces.Box(
-            low=np.array([-0.5, -0.5, 0.3]),
-            high=np.array([0.5, 0.5, 0.5]),
+            low=self.low,
+            high=self.high,
             dtype=np.float64)
 
         self.observation_space = spaces.Box(
-            low=np.array([-0.5, -0.5, 0.3, -0.5, -0.5, 0.3]),
-            high=np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5]),
+            low=np.vstack((self.low, self.low)),
+            high=np.vstack((self.high, self.high)),
             dtype=np.float64)
 
         # Goal Indicator
-        self.ball = self.K.addFrame(name="ball")
-        self.ball.setShape(ry.ST.sphere, [.05])
-        self.ball.setColor([0, 1, 0])
+        self.obj = self.K.addFrame("object")
+        self.obj.setPosition([0, 0, 0.9])
+        self.obj.setShape(ry.ST.ssBox, [.05, .05, .1, 0])
+        self.obj.setColor([1, 0, 1])
 
         # Pre-Reset the env.
         self.random_target = np.zeros(3)
@@ -65,11 +68,15 @@ class RAI_Env(gym.Env):
         """
         # Set Target in the task space
         self.K.setJointState(self._random_config_space())
-        state = self._current_state()
 
         # Move the robot to random position
-        self.K.setJointState(self._random_config_space())
-        return np.clip(state['y'], np.array([-0.5, -0.5, 0.3]), np.array([0.5, 0.5, 0.5]))
+        position = np.random.uniform(-1, 1, (3,))
+        position = np.clip(position,
+                           np.array([-0.1, -0.1, 1]),
+                           np.array([0.1, 0.1, 1]))
+        self.obj.setPosition(position)
+
+        return self.obj.getPosition()
 
     def _current_state(self) -> Dict:
         """
@@ -100,10 +107,17 @@ class RAI_Env(gym.Env):
         """
         for _ in range(self.IK_steps):
             q = self.K.getJointState()
-            F = self.K.feature(ry.FS.position, ['gripperCenter'])
-            y, J = F.eval(self.K)
+            F = self.K.feature(ry.FS.position, [self.frame])
+            y1, J1 = F.eval(self.K)
 
-            q += np.linalg.pinv(J) @ (signal - y)
+            F = self.K.feature(ry.FS.scalarProductYZ, [
+                               self.frame, "panda_link0"])
+            y2, J2 = F.eval(self.K)
+
+            Y = np.hstack((signal - y1))  # , 1.0 - y2))
+            J = np.vstack((J1))  # , J2))
+
+            q += np.linalg.pinv(J) @ Y
 
             self.S.step(q, self.tau, ry.ControlMode.position)
 
@@ -158,5 +172,4 @@ class RAI_Env(gym.Env):
         self.current_episode = 0
         self.done = False
         self.random_target = self._random_pos_target()
-        self.ball.setPosition(self.random_target)
         return self._current_state()
