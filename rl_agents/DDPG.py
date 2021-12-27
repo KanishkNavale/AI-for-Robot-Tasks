@@ -200,7 +200,7 @@ class Agent:
                 self.scalar /= self.scalar_decay
             action += action_noised
 
-        action = tf.clip_by_value(action, self.min_action, self.max_action)
+        # action = tf.clip_by_value(action, self.min_action, self.max_action)
         return action[0].numpy()
 
     def optimize(self):

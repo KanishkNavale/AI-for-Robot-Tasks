@@ -48,6 +48,29 @@ class RAI_Env(gym.Env):
         self.random_target = np.zeros(3)
         self.reset()
 
+    def _rescale(self, x, max_old, min_old, max_new, min_new):
+        factor = (x - min_old) / (max_old - min_old)
+        return ((max_new - min_new) * factor) + min_new
+
+    def _downscale_obs(self, obs):
+        for state, max, min in zip(obs, self.observation_space.high, self.observation_space.low):
+            state = self._rescale(state, max, min, 1.0, -1.0)
+        return state
+
+    def _upscale_obs(self, obs):
+        for state, max, min in zip(obs, self.observation_space.high, self.observation_space.low):
+            state = self._rescale(state, 1.0, -1.0, max, min)
+        return state
+
+    def _upscale_action(self, action):
+        for i in range(len(action)):
+            scaled = self._rescale(action[i],
+                                   1.0, -1.0,
+                                   self.high[i],
+                                   self.low[i])
+            action[i] = scaled
+        return action
+
     def _random_config_space(self):
         q0 = np.random.uniform(-2.8, 2.8)
         q1 = np.random.uniform(-1.7, 1.7)
@@ -105,6 +128,8 @@ class RAI_Env(gym.Env):
         Args:
             signal (np.ndarray): Actuating signal.
         """
+        signal = self._upscale_action(signal)
+
         for _ in range(self.IK_steps):
             q = self.K.getJointState()
             F = self.K.feature(ry.FS.position, [self.frame])
@@ -114,8 +139,8 @@ class RAI_Env(gym.Env):
                                self.frame, "panda_link0"])
             y2, J2 = F.eval(self.K)
 
-            Y = np.hstack((signal - y1))  # , 1.0 - y2))
-            J = np.vstack((J1))  # , J2))
+            Y = np.hstack((signal - y1, 1.0 - y2))
+            J = np.vstack((J1, J2))
 
             q += np.linalg.pinv(J) @ Y
 
@@ -135,7 +160,6 @@ class RAI_Env(gym.Env):
             np.float64: Reward
             np.bool_: Done
         """
-
         if np.allclose(target_state, next_state):
             done = True
             reward = 0.0
