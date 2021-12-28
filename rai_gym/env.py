@@ -34,8 +34,8 @@ class RAI_Env(gym.Env):
             dtype=np.float64)
 
         self.observation_space = spaces.Box(
-            low=np.vstack((self.low, self.low)),
-            high=np.vstack((self.high, self.high)),
+            low=np.hstack((self.low, self.low)),
+            high=np.hstack((self.high, self.high)),
             dtype=np.float64)
 
         # Goal Indicator
@@ -47,29 +47,6 @@ class RAI_Env(gym.Env):
         # Pre-Reset the env.
         self.random_target = np.zeros(3)
         self.reset()
-
-    def _rescale(self, x, max_old, min_old, max_new, min_new):
-        factor = (x - min_old) / (max_old - min_old)
-        return ((max_new - min_new) * factor) + min_new
-
-    def _downscale_obs(self, obs):
-        for state, max, min in zip(obs, self.observation_space.high, self.observation_space.low):
-            state = self._rescale(state, max, min, 1.0, -1.0)
-        return state
-
-    def _upscale_obs(self, obs):
-        for state, max, min in zip(obs, self.observation_space.high, self.observation_space.low):
-            state = self._rescale(state, 1.0, -1.0, max, min)
-        return state
-
-    def _upscale_action(self, action):
-        for i in range(len(action)):
-            scaled = self._rescale(action[i],
-                                   1.0, -1.0,
-                                   self.high[i],
-                                   self.low[i])
-            action[i] = scaled
-        return action
 
     def _random_config_space(self):
         q0 = np.random.uniform(-2.8, 2.8)
@@ -128,7 +105,7 @@ class RAI_Env(gym.Env):
         Args:
             signal (np.ndarray): Actuating signal.
         """
-        signal = self._upscale_action(signal)
+        signal = signal + np.array([0.0, 0.0, 0.59])
 
         for _ in range(self.IK_steps):
             q = self.K.getJointState()

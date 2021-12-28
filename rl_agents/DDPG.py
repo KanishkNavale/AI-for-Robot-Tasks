@@ -91,7 +91,7 @@ class Actor(tf.keras.Model):
 class Agent:
     def __init__(self, env, datapath, n_games, alpha=0.0001,
                  beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
-                 noise='norm', per_alpha=0.6, per_beta=0.4):
+                 noise='normal', per_alpha=0.6, per_beta=0.4):
 
         self.env = env
         self.gamma = tf.convert_to_tensor([gamma], dtype=tf.float32)
@@ -101,7 +101,7 @@ class Agent:
         self.datapath = datapath
         self.n_games = n_games
         self.optim_steps = 0
-        self.max_size = int(env.max_episode_length * n_games)
+        self.max_size = 2500000
         self.memory = PrioritizedReplayBuffer(self.max_size, per_alpha)
         self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.99)
 
@@ -121,14 +121,14 @@ class Agent:
         self.target_critic.compile(tf.keras.optimizers.Adam(beta))
 
         if self.noise == 'normal':
-            self.noise_param = 0.1
+            self.noise_param = 0.001
         elif self.noise == 'ou':
             self.noise = OUNoise(self.n_actions)
         elif self.noise == 'param':
             self.distances = []
-            self.scalar = 0.01
-            self.scalar_decay = 0.1
-            self.desired_distance = 0.1
+            self.scalar = 0.001
+            self.scalar_decay = 0.01
+            self.desired_distance = 0.01
             self.noisy_actor = Actor(self.n_actions, name='noisy_actor')
             # Fire-up 'noisy_actor' to set params.
             obs = env.observation_space.sample()
