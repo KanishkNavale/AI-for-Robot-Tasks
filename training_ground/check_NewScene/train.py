@@ -18,7 +18,7 @@ if __name__ == '__main__':
     score_history = []
     avg_history = []
     distance_history = []
-    n_games = 1000
+    n_games = 250
 
     # Init. Agent
     agent = Agent(env, data_path, n_games)
@@ -49,8 +49,8 @@ if __name__ == '__main__':
             score += reward
             distance = -reward
 
-        # Optimize the agent
-        agent.optimize()
+            # Optimize the agent
+            agent.optimize()
 
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])

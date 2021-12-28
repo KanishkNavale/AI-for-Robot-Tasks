@@ -47,3 +47,12 @@
     * Reach Issue,
 
         <img src="robot_scene/reach_issue.png" width="250">
+
+6. December 28, 2021
+
+    * Switched to Relative Frames instead of normalizing the states.
+    * Moved the agent optimization to be called inside the episode rollout.
+    * Training Log,
+        |Training Profile|Distance Error|
+        |:--:|:--:|
+        |<img src="training_ground/check_NewScene/data/Training_Profile.png" width="350">| <img src="training_ground/check_NewScene/data/Distance_Profile.png" width="350">|

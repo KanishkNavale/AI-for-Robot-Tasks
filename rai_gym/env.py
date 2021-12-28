@@ -34,8 +34,8 @@ class RAI_Env(gym.Env):
             dtype=np.float64)
 
         self.observation_space = spaces.Box(
-            low=np.vstack((self.low, self.low)),
-            high=np.vstack((self.high, self.high)),
+            low=np.hstack((self.low, self.low)),
+            high=np.hstack((self.high, self.high)),
             dtype=np.float64)
 
         # Goal Indicator
@@ -105,6 +105,8 @@ class RAI_Env(gym.Env):
         Args:
             signal (np.ndarray): Actuating signal.
         """
+        signal = signal + np.array([0.0, 0.0, 0.59])
+
         for _ in range(self.IK_steps):
             q = self.K.getJointState()
             F = self.K.feature(ry.FS.position, [self.frame])
@@ -114,8 +116,8 @@ class RAI_Env(gym.Env):
                                self.frame, "panda_link0"])
             y2, J2 = F.eval(self.K)
 
-            Y = np.hstack((signal - y1))  # , 1.0 - y2))
-            J = np.vstack((J1))  # , J2))
+            Y = np.hstack((signal - y1, 1.0 - y2))
+            J = np.vstack((J1, J2))
 
             q += np.linalg.pinv(J) @ Y
 
@@ -135,7 +137,6 @@ class RAI_Env(gym.Env):
             np.float64: Reward
             np.bool_: Done
         """
-
         if np.allclose(target_state, next_state):
             done = True
             reward = 0.0
