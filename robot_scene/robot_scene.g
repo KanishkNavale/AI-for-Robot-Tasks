@@ -49,6 +49,17 @@ camera_stand (camera_stand){
 # Add the robot ---------------------------------------------------------------------
 Include 'panda/panda_fixGripper.g'
 
+Edit gripper {
+    contact:-2
+}
+
 joint (pedestal panda_link0){
     joint:rigid Q:<t(0 0.59 -0.05) E(-1.5707 1.5707 0)>
+}
+
+# Add the camera --------------------------------------------------------------------
+camera(world){
+    Q:<t(0.0 0.0 2.05)>,
+    shape:marker, size:[.1],
+    focalLength:0.895, width:640, height:360, zRange:[.5 2]
 }

@@ -8,7 +8,7 @@ import numba
 
 
 # Robot Joint Limits
-joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.8])
+joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.])
 joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
 
 
@@ -33,6 +33,7 @@ class RAI_Env(gym.Env):
         self.K = ry.Config()
         self.K.clear()
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
+        self.K.selectJoints(["finger1", "finger2"], True)
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
         self.frame = 'gripperCenter'
         self.IK_steps = 5
@@ -55,6 +56,16 @@ class RAI_Env(gym.Env):
             high=np.hstack((self.high, self.high)),
             dtype=np.float64)
 
+        # Init. focal length
+        f = 0.895
+        f = f * 360.0
+        self.intrinsic = [f, f, 320.0, 180.0]
+
+        # Init. Camera into Simulation World
+        self.K.setJointState(np.zeros_like(joint_low))
+        self.S.addSensor("camera")
+        self.background_rgb, self.background_depth = self.S.getImageAndDepth()
+
         # Goal Indicator
         self.obj = self.K.addFrame("object")
         self.obj.setPosition([0, 0, 0.9])
@@ -65,8 +76,10 @@ class RAI_Env(gym.Env):
         self.random_target = np.zeros(3)
         self.reset()
 
+        # S.addImp(ry.ImpType.objectImpulses, ['obj0'], [])
+
     def _random_config_space(self):
-        q = np.random.rand(7,)
+        q = np.random.rand(joint_low.shape[0],)
         return np.clip(q, joint_low, joint_high)
 
     def _random_pos_target(self) -> np.ndarray:
