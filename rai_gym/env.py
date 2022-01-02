@@ -4,6 +4,23 @@ import gym
 from gym import spaces
 from typing import Dict
 import numpy as np
+import numba
+
+
+# Robot Joint Limits
+joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.8])
+joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
+
+
+@numba.jit(nopython=True)
+def _update_q(q, J, Y):
+    q += np.linalg.pinv(J) @ Y
+    return q
+
+
+@numba.jit(nopython=True)
+def _negative_distance(x, y):
+    return -np.linalg.norm(y - x)
 
 
 class RAI_Env(gym.Env):
@@ -24,8 +41,8 @@ class RAI_Env(gym.Env):
         self.reward_type = reward_type
         self.max_episode_length = 250
         self.tau = 1e-2
-        self.low = np.array([-0.3, -0.3, 0.59])
-        self.high = np.array([0.3, 0.3, 1.25])
+        self.low = np.array([-0.12, -0.12, 0.2])
+        self.high = np.array([0.12, 0.12, 0.8])
 
         # Init. spaces
         self.action_space = spaces.Box(
@@ -49,15 +66,8 @@ class RAI_Env(gym.Env):
         self.reset()
 
     def _random_config_space(self):
-        q0 = np.random.uniform(-2.8, 2.8)
-        q1 = np.random.uniform(-1.7, 1.7)
-        q2 = np.random.uniform(-2.8, 2.8)
-        q3 = np.random.uniform(-3.0, -0.0)
-        q4 = np.random.uniform(-2.8, 2.8)
-        q5 = np.random.uniform(-0.0, 3.7)
-        q6 = np.random.uniform(-2.8, 2.8)
-
-        return np.array([q0, q1, q2, q3, q4, q5, q6])
+        q = np.random.rand(7,)
+        return np.clip(q, joint_low, joint_high)
 
     def _random_pos_target(self) -> np.ndarray:
         """
@@ -108,7 +118,7 @@ class RAI_Env(gym.Env):
         signal = signal + np.array([0.0, 0.0, 0.59])
 
         for _ in range(self.IK_steps):
-            q = self.K.getJointState()
+            q = np.array(self.K.getJointState())
             F = self.K.feature(ry.FS.position, [self.frame])
             y1, J1 = F.eval(self.K)
 
@@ -119,7 +129,7 @@ class RAI_Env(gym.Env):
             Y = np.hstack((signal - y1, 1.0 - y2))
             J = np.vstack((J1, J2))
 
-            q += np.linalg.pinv(J) @ Y
+            q = _update_q(q, J, Y)
 
             self.S.step(q, self.tau, ry.ControlMode.position)
 
@@ -137,16 +147,17 @@ class RAI_Env(gym.Env):
             np.float64: Reward
             np.bool_: Done
         """
-        if np.allclose(target_state, next_state):
+        done = False
+        distance = _negative_distance(next_state, target_state)
+
+        if distance >= 0.01:
             done = True
             reward = 0.0
         else:
             if self.reward_type == 'dense':
-                reward = -np.linalg.norm(target_state - next_state)
-                done = False
+                reward = distance
             elif self.reward_type == 'sparse':
                 reward = -1.0
-                done = False
 
         if self.current_episode == self.max_episode_length:
             done = True

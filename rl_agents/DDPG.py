@@ -1,13 +1,9 @@
 # Library Imports
-from copy import copy
 import numpy as np
-from numpy.lib import utils
 import tensorflow as tf
-from collections import deque
-import random
 from replay_buffers.PER import PrioritizedReplayBuffer
 from replay_buffers.utils import LinearSchedule
-import gc
+import copy
 tf.random.set_seed(0)
 np.random.seed(0)
 
@@ -91,7 +87,8 @@ class Actor(tf.keras.Model):
 class Agent:
     def __init__(self, env, datapath, n_games, alpha=0.0001,
                  beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
-                 noise='normal', per_alpha=0.6, per_beta=0.4):
+                 noise='normal', per_alpha=0.6, per_beta=0.4,
+                 use_her=False):
 
         self.env = env
         self.gamma = tf.convert_to_tensor([gamma], dtype=tf.float32)
@@ -109,6 +106,7 @@ class Agent:
         self.noise = noise
         self.max_action = env.action_space.high
         self.min_action = env.action_space.low
+        self.her = use_her
 
         self.actor = Actor(self.n_actions, name='actor')
         self.critic = Critic(name='critic')
@@ -122,14 +120,17 @@ class Agent:
 
         if self.noise == 'normal':
             self.noise_param = 0.001
+
         elif self.noise == 'ou':
             self.noise = OUNoise(self.n_actions)
+
         elif self.noise == 'param':
             self.distances = []
             self.scalar = 0.001
             self.scalar_decay = 0.01
             self.desired_distance = 0.01
             self.noisy_actor = Actor(self.n_actions, name='noisy_actor')
+
             # Fire-up 'noisy_actor' to set params.
             obs = env.observation_space.sample()
             state = tf.convert_to_tensor([obs], dtype=tf.float64)
@@ -160,8 +161,44 @@ class Agent:
             weights.append(weight * tau + targets[i] * (1 - tau))
         self.target_critic.set_weights(weights)
 
-    def store(self, state, action, reward, new_state, done):
-        self.memory.add(state, action, reward, new_state, done)
+    def store(self, states, actions, rewards, next_states, dones, targets):
+        if self.her:
+            # Hyperparameter for Future Goal Sampling
+            k = 8
+
+            # Augment the replay buffer
+            T = len(actions)
+
+            for index in range(T):
+                for _ in range(k):
+                    # Always fetch index of upcoming episode transitions
+                    future = np.random.randint(index, T)
+
+                    # Unpack the buffers using the future index
+                    future_goal = next_states[future]
+                    HER_goal = copy.deepcopy(future_goal)
+
+                    # Compute HER Reward
+                    reward, done = self.env.compute_reward(
+                        HER_goal, future_goal)
+
+                    # Repack augmented episode transitions
+                    obs = states[future]
+                    state = np.concatenate((obs, HER_goal))
+
+                    next_obs = next_states[future]
+                    next_state = np.concatenate((next_obs, HER_goal))
+
+                    action = actions[future]
+
+                    # Add augmented episode transitions to agent's memory
+                    self.memory.add(state, action, reward, next_state, done)
+
+        else:
+            for state, action, reward, new_state, done, target in zip(states, actions, rewards, next_states, dones, targets):
+                state = np.concatenate((state, target))
+                new_state = np.concatenate((new_state, target))
+                self.memory.add(state, action, reward, new_state, done)
 
     def save_models(self):
         self.actor.save_weights(self.datapath + self.actor.checkpoint)
