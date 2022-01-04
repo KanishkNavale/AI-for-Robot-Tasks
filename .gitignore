@@ -28,3 +28,7 @@
 # Ignore adding agents configs for now!
 *.h5*
 *.npy*
+*actor*
+*critic*
+*target_actor*
+*target_critic*
