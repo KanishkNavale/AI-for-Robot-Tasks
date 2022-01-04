@@ -56,3 +56,11 @@
         |Training Profile|Distance Error|
         |:--:|:--:|
         |<img src="training_ground/check_NewScene/data/Training_Profile.png" width="350">| <img src="training_ground/check_NewScene/data/Distance_Profile.png" width="350">|
+
+7. January 04, 2022
+
+    * Moved DDPG agent framework to PyTorch.
+    * Training Log,
+        |Training Profile|Distance Error|
+        |:--:|:--:|
+        |<img src="training_ground/check_PyTorch/data/Training_Profile.png" width="350">| <img src="training_ground/check_PyTorch/data/Distance_Profile.png" width="350">|
