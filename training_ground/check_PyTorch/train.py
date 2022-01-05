@@ -1,5 +1,5 @@
 from rai_gym.env import RAI_Env
-from rl_agents.DDPG import Agent
+from rl_agents.TD3 import Agent
 import os
 import numpy as np
 import copy

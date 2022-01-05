@@ -247,14 +247,13 @@ class Agent:
         return action.detach().cpu().numpy()
 
     def save_models(self):
-        self.actor.save_model(self.datapath)
+
         self.actor.save_model(self.datapath)
         self.target_actor.save_model(self.datapath)
         self.critic.save_model(self.datapath)
         self.target_critic.save_model(self.datapath)
 
     def load_models(self):
-        self.actor.load_model(self.datapath)
         self.actor.load_model(self.datapath)
         self.target_actor.load_model(self.datapath)
         self.critic.load_model(self.datapath)
@@ -290,7 +289,7 @@ class Agent:
             weighted_TD_errors, dtype=T.float32).to(device)
 
         # Compute & Update Critic losses
-        critic_loss = F.mse_loss(weighted_TD_errors, zero_tensor).to(device)
+        critic_loss = F.mse_loss(weighted_TD_errors, zero_tensor)
         self.critic.optimizer.zero_grad()
         critic_loss.backward()
         self.critic.optimizer.step()
