@@ -7,6 +7,7 @@ import torch.optim as optim
 import copy
 from replay_buffers.PER import PrioritizedReplayBuffer
 from replay_buffers.utils import LinearSchedule
+import copy
 T.manual_seed(0)
 np.random.seed(0)
 
@@ -43,6 +44,7 @@ class Critic(nn.Module):
         self.model_name = name
         self.checkpoint = self.model_name
 
+        # Architecture
         self.H1 = nn.Linear(input_dim, density)
         self.H2 = nn.Linear(density, density)
         self.drop = nn.Dropout(p=0.1)
@@ -79,6 +81,7 @@ class Actor(nn.Module):
         self.model_name = name
         self.checkpoint = self.model_name
 
+        # Architecture
         self.H1 = nn.Linear(input_dim, density)
         self.H2 = nn.Linear(density, density)
         self.drop = nn.Dropout(p=0.1)
@@ -118,7 +121,7 @@ class Agent:
         self.datapath = datapath
         self.n_games = n_games
         self.optim_steps = 0
-        self.max_size = 25000
+        self.max_size = 2500000
         self.memory = PrioritizedReplayBuffer(self.max_size, per_alpha)
         self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.99)
         self.her = enable_HER
@@ -153,6 +156,9 @@ class Agent:
             self.desired_distance = 0.1
             self.noisy_actor = Actor(
                 self.obs_shape, self.n_actions, alpha, name='noisy_actor')
+
+        else:
+            raise NotImplementedError("This noise is not implmented!")
 
         self.update_networks()
 
@@ -290,7 +296,7 @@ class Agent:
             weighted_TD_errors, dtype=T.float32).to(device)
 
         # Compute & Update Critic losses
-        critic_loss = F.mse_loss(weighted_TD_errors, zero_tensor).to(device)
+        critic_loss = F.mse_loss(weighted_TD_errors, zero_tensor)
         self.critic.optimizer.zero_grad()
         critic_loss.backward()
         self.critic.optimizer.step()

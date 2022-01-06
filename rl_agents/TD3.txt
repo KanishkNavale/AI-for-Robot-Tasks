@@ -1,361 +1,342 @@
+# Library Imports
 import numpy as np
 import torch as T
-import torch.nn.functional as F
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
-import os
+from replay_buffers.PER import PrioritizedReplayBuffer
+from replay_buffers.utils import LinearSchedule
+import copy
+T.manual_seed(0)
+np.random.seed(0)
 
 
-class ReplayBuffer:
-    """Defines the Buffer dataset from which the agent learns"""
-
-    def __init__(self, max_size, input_shape, dim_actions):
-        """
-        Description,
-        Initializes matrices as dataframes.
-        Args:
-            max_size ([int]): Max Size of the Buffer
-            input_shape ([type]): Observation Shape
-            dim_actions ([type]): Dimension of action
-        """
-        self.mem_size = max_size
-        self.mem_cntr = 0
-        self.state_memory = np.zeros((self.mem_size, input_shape),
-                                     dtype=np.float32)
-        self.new_state_memory = np.zeros((self.mem_size, input_shape),
-                                         dtype=np.float32)
-        self.action_memory = np.zeros((self.mem_size, dim_actions),
-                                      dtype=np.float32)
-        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
-
-    def store_transition(self, state, action, reward, new_state, done):
-        """
-        Description,
-            Adds experience to it's w.r.t matrices dataframes.
-        Args:
-            state ([np.array]): State
-            action ([int]): action
-            reward ([np.float32]): reward
-            new_state ([np.array]): State
-            done ([bool]): Done Flag
-        """
-        index = self.mem_cntr % self.mem_size
-        self.state_memory[index] = state
-        self.new_state_memory[index] = new_state
-        self.action_memory[index] = action
-        self.reward_memory[index] = reward
-        self.terminal_memory[index] = done
-        self.mem_cntr += 1
-
-    def sample_buffer(self, batch_size):
-        """
-        Description,
-            Samples random batch of experiences from dataframe.
-        Args:
-            batch_size ([int]): No. of Experiences.
-        Returns:
-            states ([np.array]): State
-            actions ([int]): action
-            rewards ([np.float32]): reward
-            new_states ([np.array]): State
-            dones ([bool]): Done Flag
-        """
-        max_mem = min(self.mem_cntr, self.mem_size)
-        batch = np.random.choice(max_mem, batch_size, replace=False)
-        states = self.state_memory[batch]
-        _states = self.new_state_memory[batch]
-        actions = self.action_memory[batch]
-        rewards = self.reward_memory[batch]
-        dones = self.terminal_memory[batch]
-        return states, actions, rewards, _states, dones
+device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
 
 
-class CriticNetwork(nn.Module):
-    def __init__(self, beta, input_dims, fc1_dims, fc2_dims, n_actions,
-                 name, chkpt_dir):
-        """
-        Description,
-            Initializes Critic Network.
-        Args:
-            beta ([np.float32]): learning rate.
-            input_dims ([int]): state shape.
-            fc1_dims ([int]): Hidden Layer 1 dimension.
-            fc2_dims ([int]): Hidden Layer 2 dimension.
-            n_actions ([int]): action shape.
-            name ([str]): Name of the Network
-            chkpt_dir (str, optional): Data Directory. Defaults to 'data/'.
-        """
-        super(CriticNetwork, self).__init__()
-        self.input_dims = input_dims
-        self.fc1_dims = fc1_dims
-        self.fc2_dims = fc2_dims
-        self.n_actions = n_actions
-        self.name = name
-        self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_td3')
+class OUNoise:
+    def __init__(self, action_dimension, scale=0.1, mu=0, theta=0.15, sigma=0.2):
+        self.action_dimension = action_dimension
+        self.scale = scale
+        self.mu = mu
+        self.theta = theta
+        self.sigma = sigma
+        self.state = np.ones(self.action_dimension) * self.mu
+        self.reset()
 
-        self.fc1 = nn.Linear(self.input_dims + n_actions, self.fc1_dims)
-        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.q1 = nn.Linear(self.fc2_dims, 1)
+    def reset(self):
+        self.state = np.ones(self.action_dimension) * self.mu
+
+    def __call__(self):
+        x = self.state
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
+        self.state = x + dx
+        return self.state * self.scale
+
+
+class Critic(nn.Module):
+    """Defines a Critic Deep Learning Network"""
+
+    def __init__(self, input_dim, beta, density=512, name='critic'):
+        super(Critic, self).__init__()
+
+        self.model_name = name
+        self.checkpoint = self.model_name
+
+        # Architecture
+        self.H1 = nn.Linear(input_dim, density)
+        self.H2 = nn.Linear(density, density)
+        self.drop = nn.Dropout(p=0.1)
+        self.H3 = nn.Linear(density, density)
+        self.H4 = nn.Linear(density, density)
+        self.Q = nn.Linear(density, 1)
 
         self.optimizer = optim.Adam(self.parameters(), lr=beta)
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
-
-        self.to(self.device)
+        self.to(device)
 
     def forward(self, state, action):
-        """
-        Description,
-            Solves the forward Propogation as per graph.
-        Args:
-            states ([np.array]): State
-            actions ([int]): action
-        Returns:
-            [np.float32]: Value.
-        """
-        q1_action_value = self.fc1(T.cat([state, action], dim=1))
-        q1_action_value = F.relu(q1_action_value)
-        q1_action_value = self.fc2(q1_action_value)
-        q1_action_value = F.relu(q1_action_value)
+        value = T.hstack((state, action))
+        value = F.relu(self.H1(value))
+        value = F.relu(self.H2(value))
+        value = self.drop(value)
+        value = F.relu(self.H3(value))
+        value = F.relu(self.H4(value))
+        value = self.Q(value)
+        return value
 
-        q1 = self.q1(q1_action_value)
+    def save_model(self, path):
+        T.save(self.state_dict(), path + self.checkpoint)
 
-        return q1
-
-    def save_checkpoint(self):
-        """
-        Description,
-            Saves the model to the checkpoint directory.
-        """
-        T.save(self.state_dict(), self.checkpoint_file)
-
-    def load_checkpoint(self):
-        """
-        Description,
-            Loads the model from checkpoint directory.
-        """
-        self.load_state_dict(T.load(self.checkpoint_file))
+    def load_model(self, path):
+        self.load_state_dict(T.load(path + self.checkpoint))
 
 
-class ActorNetwork(nn.Module):
-    def __init__(self, alpha, input_dims, fc1_dims, fc2_dims,
-                 n_actions, name, chkpt_dir):
-        """
-        Description,
-            Initializes Actor Network.
-        Args:
-            alpha ([np.float32]): learning rate.
-            input_dims ([int]): state shape.
-            fc1_dims ([int]): Hidden Layer 1 dimension.
-            fc2_dims ([int]): Hidden Layer 2 dimension.
-            n_actions ([int]): action shape.
-            name ([str]): Name of the Network
-            chkpt_dir (str, optional): Data Directory. Defaults to 'data/'.
-        """
-        super(ActorNetwork, self).__init__()
-        self.input_dims = input_dims
-        self.fc1_dims = fc1_dims
-        self.fc2_dims = fc2_dims
-        self.n_actions = n_actions
-        self.name = name
-        self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_td3')
+class Actor(nn.Module):
+    """Defines a Actor Deep Learning Network"""
 
-        self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
-        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.mu = nn.Linear(self.fc2_dims, self.n_actions)
+    def __init__(self, input_dim, n_actions, alpha, density=512, name='actor'):
+        super(Actor, self).__init__()
+
+        self.model_name = name
+        self.checkpoint = self.model_name
+
+        # Architecture
+        self.H1 = nn.Linear(input_dim, density)
+        self.H2 = nn.Linear(density, density)
+        self.drop = nn.Dropout(p=0.1)
+        self.H3 = nn.Linear(density, density)
+        self.H4 = nn.Linear(density, density)
+        self.mu = nn.Linear(density, n_actions)
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
-
-        self.to(self.device)
+        self.to(device)
 
     def forward(self, state):
-        """
-        Description,
-            Solves the forward Propogation as per graph.
-        Args:
-            states ([np.array]): State
-        Returns:
-            [np.float32]: force.
-        """
-        prob = self.fc1(state)
-        prob = F.relu(prob)
-        prob = self.fc2(prob)
-        prob = F.relu(prob)
+        action = F.relu(self.H1(state))
+        action = F.relu(self.H2(action))
+        action = self.drop(action)
+        action = F.relu(self.H3(action))
+        action = F.relu(self.H4(action))
+        action = T.tanh(self.mu(action))
+        return action
 
-        mu = T.tanh(self.mu(prob))
+    def save_model(self, path):
+        T.save(self.state_dict(), path + self.checkpoint)
 
-        return mu
-
-    def save_checkpoint(self):
-        """
-        Description,
-            Saves the model to the checkpoint directory.
-        """
-        T.save(self.state_dict(), self.checkpoint_file)
-
-    def load_checkpoint(self):
-        """
-        Description,
-            Loads the model from checkpoint directory.
-        """
-        self.load_state_dict(T.load(self.checkpoint_file))
+    def load_model(self, path):
+        self.load_state_dict(T.load(path + self.checkpoint))
 
 
 class Agent():
-    def __init__(self, env, obs_shape, n_actions, datapath, alpha=0.0001,
-                 beta=0.0002, tau=0.005, gamma=0.99, update_actor_interval=2,
-                 max_size=250000, layer1_size=1024,
-                 layer2_size=512, batch_size=64, noise=0.1):
-        """
-        Description,
-            Initializes  Agent.
-        Args:
-            alpha ([np.float32]): Learning rate of Actor.
-            beta ([np.float32]): Learning rate of Critic.
-            tau ([tau]): Weight transport rate.
-            env ([object]): Environment.
-            gamma (float, optional): Agent hyperparameter.
-            update_actor_interval (int, optional): Agent update Interval.
-            n_actions (int, optional): No. of actions.
-            max_size (int, optional): Size of Buffer.
-            layer1_size (int, optional): Hidden layer 1 Size.
-            layer2_size (int, optional): Hidden layer 2 Size.
-            batch_size (int, optional): Batch Size for optimization.
-            noise (float, optional): Noise. Defaults to 0.1.
-        """
-        self.gamma = gamma
-        self.tau = tau
-        self.max_action = env.action_space.high
-        self.min_action = env.action_space.low
+    def __init__(self, env, datapath, n_games, alpha=0.0001,
+                 beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
+                 noise='normal', per_alpha=0.6, per_beta=0.4, enable_HER=False):
+
+        self.env = env
+        self.gamma = T.tensor(gamma, dtype=T.float32).to(device)
+        self.tau = T.tensor(tau, dtype=T.float32).to(device)
+        self.n_actions = env.action_space.shape[0]
+        self.obs_shape = env.observation_space.shape[0]
+        self.datapath = datapath
+        self.n_games = n_games
+        self.optim_steps = 0
+        self.max_size = 2500000
+        self.memory = PrioritizedReplayBuffer(self.max_size, per_alpha)
+        self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.99)
+        self.her = enable_HER
 
         self.batch_size = batch_size
-        self.learn_step_cntr = 0
-        self.time_step = 0
-        self.n_actions = n_actions
-        self.update_actor_iter = update_actor_interval
-        self.input_dims = obs_shape
-        self.memory = ReplayBuffer(max_size, self.input_dims, n_actions)
-
-        self.actor = ActorNetwork(alpha, self.input_dims, layer1_size,
-                                  layer2_size, n_actions=n_actions,
-                                  name='actor', chkpt_dir=datapath)
-
-        self.critic_1 = CriticNetwork(beta, self.input_dims, layer1_size,
-                                      layer2_size, n_actions=n_actions,
-                                      name='critic_1', chkpt_dir=datapath)
-
-        self.critic_2 = CriticNetwork(beta, self.input_dims, layer1_size,
-                                      layer2_size, n_actions=n_actions,
-                                      name='critic_2', chkpt_dir=datapath)
-
-        self.target_actor = ActorNetwork(alpha, self.input_dims, layer1_size,
-                                         layer2_size, n_actions=n_actions,
-                                         name='target_actor',
-                                         chkpt_dir=datapath)
-
-        self.target_critic_1 = CriticNetwork(beta, self.input_dims,
-                                             layer1_size,
-                                             layer2_size, n_actions=n_actions,
-                                             name='target_critic_1',
-                                             chkpt_dir=datapath)
-
-        self.target_critic_2 = CriticNetwork(beta, self.input_dims,
-                                             layer1_size,
-                                             layer2_size, n_actions=n_actions,
-                                             name='target_critic_2',
-                                             chkpt_dir=datapath)
-
         self.noise = noise
-        self.update_network_parameters(tau=1)
+        self.max_action = T.tensor(
+            env.action_space.high, dtype=T.float32).to(device)
+        self.min_action = T.tensor(
+            env.action_space.low, dtype=T.float32).to(device)
+
+        self.actor = Actor(self.obs_shape, self.n_actions, alpha, name='actor')
+        self.target_actor = Actor(
+            self.obs_shape, self.n_actions, alpha, name='target_actor')
+
+        self.critic_1 = Critic(
+            self.obs_shape + self.n_actions, beta, name='critic_1')
+        self.critic_2 = Critic(
+            self.obs_shape + self.n_actions, beta, name='critic_2')
+        self.target_critic_1 = Critic(
+            self.obs_shape + self.n_actions, beta, name='target_critic_1')
+        self.target_critic_2 = Critic(
+            self.obs_shape + self.n_actions, beta, name='target_critic_2')
+
+        if self.noise == 'normal':
+            self.noise_param = 0.001
+
+        elif self.noise == 'ou':
+            self.noise = OUNoise(self.n_actions)
+
+        elif self.noise == 'param':
+            self.distances = []
+            self.scalar = 0.001
+            self.scalar_decay = 0.01
+            self.desired_distance = 0.01
+            self.noisy_actor = Actor(
+                self.obs_shape, self.n_actions, alpha, name='noisy_actor')
+
+        else:
+            raise NotImplementedError("This noise is not implmented!")
+
+        self.update_network()
+
+    def save_models(self):
+        self.actor.save_model(self.datapath)
+        self.target_actor.save_model(self.datapath)
+        self.critic_1.save_model(self.datapath)
+        self.target_critic_1.save_model(self.datapath)
+        self.critic_2.save_model(self.datapath)
+        self.target_critic_2.save_model(self.datapath)
+
+    def load_models(self):
+        self.actor.load_model(self.datapath)
+        self.target_actor.load_model(self.datapath)
+        self.critic_1.load_model(self.datapath)
+        self.target_critic_1.load_model(self.datapath)
+        self.critic_2.load_model(self.datapath)
+        self.target_critic_2.load_model(self.datapath)
+
+    def update_network(self):
+        """
+        Description,
+            Performs network updates as per TD3 Policy
+        """
+        tau = self.tau
+
+        for critic_weights, target_critic_weights in zip(self.critic_1.parameters(), self.target_critic_1.parameters()):
+            target_critic_weights.data.copy_(
+                tau * critic_weights.data + (1 - tau) * target_critic_weights.data)
+
+        for critic_weights, target_critic_weights in zip(self.critic_2.parameters(), self.target_critic_2.parameters()):
+            target_critic_weights.data.copy_(
+                tau * critic_weights.data + (1 - tau) * target_critic_weights.data)
+
+        for actor_weights, target_actor_weights in zip(self.actor.parameters(), self.target_actor.parameters()):
+            target_actor_weights.data.copy_(
+                tau * actor_weights.data + (1 - tau) * target_actor_weights.data)
 
     def choose_action(self, observation):
-        """
-        Description,
-            Computes action.
-        Args:
-            observation ([np.float32]): state
-        Returns:
-            [np.float]: optimal force.
-        """
-        state = T.tensor(observation, dtype=T.float).to(self.actor.device)
-        mu = self.actor.forward(state).to(self.actor.device)
-        mu_prime = mu + T.tensor(np.random.normal(scale=self.noise),
-                                 dtype=T.float).to(self.actor.device)
+        self.actor.eval()
+        state = T.tensor(observation, dtype=T.float32).to(device)
+        action = self.actor.forward(state)
 
-        mu_prime = T.clamp(mu_prime, self.min_action, self.max_action)
-        self.time_step += 1
+        if self.noise == 'normal':
+            noise = np.random.uniform(0.0, self.noise_param, action.shape[0])
+            action += T.tensor(noise, dtype=T.float32).to(device)
 
-        return mu_prime.cpu().detach().numpy()
+        elif self.noise == 'ou':
+            action += T.tensor(self.noise(), dtype=T.float32).to(device)
 
-    def remember(self, state, action, reward, new_state, done):
-        """
-        Description,
-            Adds experience to it's w.r.t matrices dataframes.
-        Args:
-            state ([np.array]): State
-            action ([int]): action
-            reward ([np.float32]): reward
-            new_state ([np.array]): State
-            done ([bool]): Done Flag
-        """
-        self.memory.store_transition(state, action, reward, new_state, done)
+        elif self.noise == 'param':
+            self.update_noisy_actor()
+            self.noisy_actor.eval()
+            action_noised = self.noisy_actor(state)
+            distance = T.linalg.norm(action - action_noised)
+            self.distances.append(distance)
+            if distance > self.desired_distance:
+                self.scalar *= self.scalar_decay
+            if distance < self.desired_distance:
+                self.scalar /= self.scalar_decay
+            action += action_noised
+
+        action = T.clamp(action, self.min_action, self.max_action)
+        self.actor.train()
+        return action.detach().cpu().numpy()
+
+    def store(self, states, actions, rewards, next_states, dones, targets):
+        if self.her:
+            # Hyperparameter for Future Goal Sampling
+            k = 4
+
+            # Augment the replay buffer
+            T = len(actions)
+
+            for index in range(T):
+                for _ in range(k):
+                    # Always fetch index of upcoming episode transitions
+                    future = np.random.randint(index, T)
+
+                    # Unpack the buffers using the future index
+                    future_goal = next_states[future]
+                    HER_goal = copy.deepcopy(future_goal)
+
+                    # Compute HER Reward
+                    reward, done = self.env.compute_reward(
+                        HER_goal, future_goal)
+
+                    # Repack augmented episode transitions
+                    obs = states[future]
+                    state = np.concatenate((obs, HER_goal))
+
+                    next_obs = next_states[future]
+                    next_state = np.concatenate((next_obs, HER_goal))
+
+                    action = actions[future]
+
+                    # Add augmented episode transitions to agent's memory
+                    self.memory.add(state, action, reward, next_state, done)
+
+        else:
+            for state, action, reward, new_state, done, target in zip(states, actions, rewards, next_states, dones, targets):
+                state = np.concatenate((state, target))
+                new_state = np.concatenate((new_state, target))
+                self.memory.add(state, action, reward, new_state, done)
 
     def optimize(self):
         """
         Description,
             Performs TD3 policy optimization step.
         """
-        if self.memory.mem_cntr < self.batch_size:
+        if len(self.memory._storage) < self.batch_size:
             return
 
-        state, action, reward, new_state, done = \
-            self.memory.sample_buffer(self.batch_size)
+        beta = self.beta_scheduler.value(self.optim_steps)
+        state, action, reward, new_state, done, weights, indices = self.memory.sample(
+            self.batch_size, beta)
 
-        reward = T.tensor(reward, dtype=T.float).to(self.critic_1.device)
-        done = T.tensor(done).to(self.critic_1.device)
-        state_ = T.tensor(new_state, dtype=T.float).to(self.critic_1.device)
-        state = T.tensor(state, dtype=T.float).to(self.critic_1.device)
-        action = T.tensor(action, dtype=T.float).to(self.critic_1.device)
+        state = T.tensor(np.vstack(state), dtype=T.float32).to(device)
+        action = T.tensor(np.vstack(action), dtype=T.float32).to(device)
+        done = T.tensor(np.vstack(done), dtype=T.bool).to(device)
+        reward = T.tensor(np.vstack(reward), dtype=T.float32).to(device)
+        new_state = T.tensor(np.vstack(new_state), dtype=T.float32).to(device)
+        weights = T.tensor(np.vstack(weights), dtype=T.float32).to(device)
 
-        target_actions = self.target_actor.forward(state_)
-        target_actions = target_actions + T.clamp(
-            T.tensor(np.random.normal(scale=0.2)), -0.5, 0.5)
-        target_actions = T.clamp(target_actions, self.min_action,
-                                 self.max_action)
+        self.target_actor.eval()
+        self.target_critic_1.eval()
+        self.critic_1.eval()
+        self.target_critic_2.eval()
+        self.critic_2.eval()
 
-        q1_ = self.target_critic_1.forward(state_, target_actions)
-        q2_ = self.target_critic_2.forward(state_, target_actions)
+        target_actions = self.target_actor.forward(new_state)
+
+        target_q1 = self.target_critic_1.forward(new_state, target_actions)
+        target_q2 = self.target_critic_2.forward(new_state, target_actions)
+
+        target_q1[done] = 0.0
+        target_q2[done] = 0.0
 
         q1 = self.critic_1.forward(state, action)
         q2 = self.critic_2.forward(state, action)
 
-        q1_[done] = 0.0
-        q2_[done] = 0.0
+        q1 = q1.squeeze()
+        q2 = q2.squeeze()
+        target_q1 = target_q1.squeeze()
+        target_q2 = target_q2.squeeze()
+        reward = reward.squeeze()
 
-        q1_ = q1_.view(-1)
-        q2_ = q2_.view(-1)
-
-        critic_value_ = T.min(q1_, q2_)
-
-        target = reward + self.gamma * critic_value_
-        target = target.view(self.batch_size, 1)
+        critic_value = T.min(target_q1, target_q2)
+        target = reward + self.gamma * critic_value
 
         self.critic_1.optimizer.zero_grad()
         self.critic_2.optimizer.zero_grad()
 
         q1_loss = F.mse_loss(target, q1)
         q2_loss = F.mse_loss(target, q2)
-        critic_loss = 0.5 * (q1_loss + q2_loss)
+        TD_errors = 0.5 * (q1_loss + q2_loss)
+
+        # Weight TD errors
+        weighted_TD_errors = T.mul(TD_errors, weights)
+        zero_tensor = T.zeros_like(
+            weighted_TD_errors, dtype=T.float32).to(device)
+
+        # Compute & Update Critic losses
+        critic_loss = F.mse_loss(weighted_TD_errors, zero_tensor)
+
         critic_loss.backward()
         self.critic_1.optimizer.step()
         self.critic_2.optimizer.step()
 
-        self.learn_step_cntr += 1
+        td_errors = target.detach().cpu().numpy()
+        new_priorities = np.abs(td_errors) + 1e-6
+        self.memory.update_priorities(indices, new_priorities)
 
-        if self.learn_step_cntr % self.update_actor_iter != 0:
+        self.optim_steps += 1.0
+
+        if self.optim_steps % 2 != 0:
             return
 
         self.actor.optimizer.zero_grad()
@@ -364,66 +345,4 @@ class Agent():
         actor_loss.backward()
         self.actor.optimizer.step()
 
-        self.update_network_parameters()
-
-    def update_network_parameters(self, tau=None):
-        """
-        Description,
-            Performs network updates as per TD3 Policy
-        """
-        if tau is None:
-            tau = self.tau
-
-        actor_params = self.actor.named_parameters()
-        critic_1_params = self.critic_1.named_parameters()
-        critic_2_params = self.critic_2.named_parameters()
-        target_actor_params = self.target_actor.named_parameters()
-        target_critic_1_params = self.target_critic_1.named_parameters()
-        target_critic_2_params = self.target_critic_2.named_parameters()
-
-        critic_1 = dict(critic_1_params)
-        critic_2 = dict(critic_2_params)
-        actor = dict(actor_params)
-        target_actor = dict(target_actor_params)
-        target_critic_1 = dict(target_critic_1_params)
-        target_critic_2 = dict(target_critic_2_params)
-
-        for name in critic_1:
-            critic_1[name] = tau * critic_1[name].clone() + (1 - tau) *\
-                target_critic_1[name].clone()
-
-        for name in critic_2:
-            critic_2[name] = tau * critic_2[name].clone() + (1 - tau) *\
-                target_critic_2[name].clone()
-
-        for name in actor:
-            actor[name] = tau * actor[name].clone() + \
-                (1 - tau) * target_actor[name].clone()
-
-        self.target_critic_1.load_state_dict(critic_1)
-        self.target_critic_2.load_state_dict(critic_2)
-        self.target_actor.load_state_dict(actor)
-
-    def save_models(self):
-        """
-        Description,
-            Save all the models into respective checkpoints.
-        """
-        self.actor.save_checkpoint()
-        self.target_actor.save_checkpoint()
-        self.critic_1.save_checkpoint()
-        self.critic_2.save_checkpoint()
-        self.target_critic_1.save_checkpoint()
-        self.target_critic_2.save_checkpoint()
-
-    def load_models(self):
-        """
-        Description,
-            Loads all the model from respective checkpoints.
-        """
-        self.actor.load_checkpoint()
-        self.target_actor.load_checkpoint()
-        self.critic_1.load_checkpoint()
-        self.critic_2.load_checkpoint()
-        self.target_critic_1.load_checkpoint()
-        self.target_critic_2.load_checkpoint()
+        self.update_network()
