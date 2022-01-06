@@ -2,6 +2,4 @@ gym==0.21.0
 matplotlib==3.5.1
 numba==0.54.1
 numpy==1.17.4
-tensorflow==2.7.0
-tensorflow_gpu==2.7.0
-torch==1.10.1+cu113
+torch==1.10.1

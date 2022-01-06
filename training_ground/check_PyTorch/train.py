@@ -1,5 +1,5 @@
 from rai_gym.env import RAI_Env
-from rl_agents.TD3 import Agent
+from rl_agents.DDPG import Agent
 import os
 import numpy as np
 import copy
@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
             OBS = copy.deepcopy(next_OBS)
             score += reward
-            distance = -reward
+            distance = -reward * 1e3
 
             # Optimize the agent
             agent.optimize()
