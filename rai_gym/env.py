@@ -78,9 +78,9 @@ class RAI_Env(gym.Env):
 
         # S.addImp(ry.ImpType.objectImpulses, ['obj0'], [])
 
-    def _random_config_space(self):
+    def _random_config_space(self, factor=0.1):
         q = np.random.rand(joint_low.shape[0],)
-        return np.clip(q, joint_low, joint_high)
+        return factor * np.clip(q, joint_low, joint_high)
 
     def _random_pos_target(self) -> np.ndarray:
         """

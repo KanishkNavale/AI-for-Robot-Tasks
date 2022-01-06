@@ -4,6 +4,7 @@ import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import copy
 from replay_buffers.PER import PrioritizedReplayBuffer
 from replay_buffers.utils import LinearSchedule
 T.manual_seed(0)
@@ -119,7 +120,7 @@ class Agent:
         self.optim_steps = 0
         self.max_size = 25000
         self.memory = PrioritizedReplayBuffer(self.max_size, per_alpha)
-        self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.7)
+        self.beta_scheduler = LinearSchedule(n_games, per_beta, 0.99)
         self.her = enable_HER
 
         self.batch_size = batch_size
@@ -138,16 +139,18 @@ class Agent:
             self.obs_shape + self.n_actions, beta, name='target_critic')
 
         if self.noise == 'normal':
-            self.noise_param = 0.001
+            self.noise_param = 0.01
+            self.noise_scheduler = LinearSchedule(
+                n_games, self.noise_param, self.noise_param / 20.0)
 
         elif self.noise == 'ou':
             self.noise = OUNoise(self.n_actions)
 
         elif self.noise == 'param':
             self.distances = []
-            self.scalar = 0.001
-            self.scalar_decay = 0.01
-            self.desired_distance = 0.01
+            self.noise_param = 0.01
+            self.scalar_decay = 0.1
+            self.desired_distance = 0.1
             self.noisy_actor = Actor(
                 self.obs_shape, self.n_actions, alpha, name='noisy_actor')
 
@@ -168,7 +171,7 @@ class Agent:
         with T.no_grad():
             for actor_weights, noisy_actor_weights in zip(self.actor.parameters(), self.noisy_actor.parameters()):
                 noise = np.random.uniform(
-                    0.0, self.scalar, actor_weights.shape)
+                    0.0, self.noise_param, actor_weights.shape)
                 noise = T.tensor(noise, dtype=T.float32).to(
                     actor_weights.device)
                 noisy_actor_weights.data.copy_(actor_weights.data + noise)
@@ -212,13 +215,10 @@ class Agent:
                 new_state = np.concatenate((new_state, target))
                 self.memory.add(state, action, reward, new_state, done)
 
-    def choose_action(self, observation):
-        self.actor.eval()
-        state = T.tensor(observation, dtype=T.float32).to(device)
-        action = self.actor.forward(state)
-
+    def add_exploration_noise(self, state, action):
         if self.noise == 'normal':
-            noise = np.random.uniform(0.0, self.noise_param, action.shape[0])
+            noise_param = self.noise_scheduler.value(self.optim_steps)
+            noise = np.random.uniform(0.0, noise_param, action.shape)
             action += T.tensor(noise, dtype=T.float32).to(device)
 
         elif self.noise == 'ou':
@@ -231,24 +231,31 @@ class Agent:
             distance = T.linalg.norm(action - action_noised)
             self.distances.append(distance)
             if distance > self.desired_distance:
-                self.scalar *= self.scalar_decay
+                self.noise_param *= self.scalar_decay
             if distance < self.desired_distance:
-                self.scalar /= self.scalar_decay
-            action += action_noised
+                self.noise_param /= self.scalar_decay
+            action = action_noised
+            self.noisy_actor.train()
 
-        action = T.clamp(action, self.min_action, self.max_action)
+        return T.clamp(action, self.min_action, self.max_action)
+
+    def choose_action(self, observation):
+        self.actor.eval()
+        state = T.tensor(observation, dtype=T.float32).to(device)
+        action = self.actor.forward(state)
+
+        action = self.add_exploration_noise(state, action)
+
         self.actor.train()
         return action.detach().cpu().numpy()
 
     def save_models(self):
-        self.actor.save_model(self.datapath)
         self.actor.save_model(self.datapath)
         self.target_actor.save_model(self.datapath)
         self.critic.save_model(self.datapath)
         self.target_critic.save_model(self.datapath)
 
     def load_models(self):
-        self.actor.load_model(self.datapath)
         self.actor.load_model(self.datapath)
         self.target_actor.load_model(self.datapath)
         self.critic.load_model(self.datapath)
@@ -271,7 +278,6 @@ class Agent:
 
         self.target_actor.eval()
         self.target_critic.eval()
-        self.critic.eval()
 
         Q_target = self.target_critic(new_state, self.target_actor(new_state))
         Y = reward + (done * self.gamma * Q_target)
@@ -289,11 +295,20 @@ class Agent:
         critic_loss.backward()
         self.critic.optimizer.step()
 
+        self.target_actor.train()
+        self.target_critic.train()
+
+        self.actor.eval()
+        self.critic.eval()
+
         # Compute & Update Actor losses
         actor_loss = -self.critic(state, self.actor(state)).mean()
         self.actor.optimizer.zero_grad()
         actor_loss.backward()
         self.actor.optimizer.step()
+
+        self.actor.train()
+        self.critic.train()
 
         td_errors = TD_errors.detach().cpu().numpy()
         new_priorities = np.abs(td_errors) + 1e-6
