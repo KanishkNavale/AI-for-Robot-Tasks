@@ -28,10 +28,10 @@
 # Ignore adding agents configs for now!
 *.h5*
 *.npy*
-*actor*
-*critic*
-*target_actor*
-*target_critic*
+actor*
+critic*
+target_actor*
+target_critic*
 
 # Don't Ignore Trained Actors
-!/trained_actors/actor
+!/trained_agents/actor
