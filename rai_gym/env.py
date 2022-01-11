@@ -129,8 +129,10 @@ class RAI_Env(gym.Env):
             signal (np.ndarray): Actuating signal.
         """
         signal = signal + np.array([0.0, 0.0, 0.59])
+        F = self.K.feature(ry.FS.position, [self.frame])
+        y1, J1 = F.eval(self.K)
 
-        for _ in range(self.IK_steps):
+        while not np.allclose(signal, y1):
             q = np.array(self.K.getJointState())
             F = self.K.feature(ry.FS.position, [self.frame])
             y1, J1 = F.eval(self.K)
@@ -163,7 +165,7 @@ class RAI_Env(gym.Env):
         done = False
         distance = _negative_distance(next_state, target_state)
 
-        if distance >= 0.01:
+        if distance >= 0.001:
             done = True
             reward = 0.0
         else:

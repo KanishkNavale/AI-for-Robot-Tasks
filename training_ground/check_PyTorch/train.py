@@ -18,7 +18,7 @@ if __name__ == '__main__':
     score_history = []
     avg_history = []
     distance_history = []
-    n_games = 300
+    n_games = 250
 
     # Init. Agent
     agent = Agent(env, data_path, n_games)

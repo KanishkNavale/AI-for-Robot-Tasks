@@ -32,3 +32,6 @@
 *critic*
 *target_actor*
 *target_critic*
+
+# Don't Ignore Trained Actors
+!/trained_actors/actor
