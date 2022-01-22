@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     # Init. Datapath
     data_path = os.path.dirname(os.path.abspath(__file__)) + '/data/'
-    agent_path = os.path.abspath("trained_actors")
+    agent_path = os.path.abspath("trained_agents")
 
     # Init. Training
     score_history = []

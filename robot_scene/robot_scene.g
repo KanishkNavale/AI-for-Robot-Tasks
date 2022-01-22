@@ -18,6 +18,18 @@ table (base){
     joint:rigid
 }
 
+bin1 (table){
+    shape:mesh, color:[1, 0, 0, 1], mesh:'meshes/bin_1.STL'
+    Q:<t(-0.19 0.016 -0.15) E(0 -1.5707 0)>,
+    joint:rigid
+}
+
+bin2 (table){
+    shape:mesh, color:[0, 0, 1, 1], mesh:'meshes/bin_2.STL'
+    Q:<t(-0.035 0.016 -0.15) E(0 -1.5707 0)>,
+    joint:rigid
+}
+
 camera_stand (base){
     shape:mesh, color:[1, 1, 1, 1], mesh:'meshes/camera_stand.STL'
     Q:[0, 0.525, 0.05, 0, 0, 0.707108, 0.707105],
