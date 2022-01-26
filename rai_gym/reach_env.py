@@ -93,10 +93,10 @@ class Reach_Environment(gym.Env):
         self.K.setJointState(self._random_config_space())
 
         # Move the robot to random position
-        position = np.random.uniform(-1, 1, (3,))
+        position = np.random.uniform(-1.5, 1.5, (3,))
         position = np.clip(position,
-                           np.array([-0.1, -0.1, 1]),
-                           np.array([0.1, 0.1, 1]))
+                           np.array([-0.12, -0.12, 0.9]),
+                           np.array([0.12, 0.12, 1.4]))
         self.obj.setPosition(position)
 
         return self.obj.getPosition()
