@@ -1,4 +1,4 @@
-from rai_gym.env import RAI_Env
+from rai_gym.reach_env import Reach_Environment
 from rl_agents.DDPG import Agent
 import os
 import numpy as np
@@ -8,7 +8,7 @@ import torch as T
 if __name__ == '__main__':
 
     # Init. Environment
-    env = RAI_Env(reward_type='dense')
+    env = Reach_Environment(reward_type='dense')
     env.reset()
 
     # Init. Datapath

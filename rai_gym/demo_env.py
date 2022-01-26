@@ -18,16 +18,11 @@ def _update_q(q, J, Y):
     return q
 
 
-@numba.jit(nopython=True)
-def _negative_distance(x, y):
-    return -np.linalg.norm(y - x)
-
-
-class RAI_Env(gym.Env):
+class Environment(gym.Env):
     """Custom Environment that follows gym interface"""
 
     def __init__(self, reward_type='sparse'):
-        super(RAI_Env, self).__init__()
+        super(Environment, self).__init__()
 
         # Load the robot configuration file
         self.K = ry.Config()
@@ -163,7 +158,7 @@ class RAI_Env(gym.Env):
             np.bool_: Done
         """
         done = False
-        distance = _negative_distance(next_state, target_state)
+        distance = 0
 
         if distance >= 0.001:
             done = True
