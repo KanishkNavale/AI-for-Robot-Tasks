@@ -1,9 +1,9 @@
+import string
 from time import sleep
 import libry as ry
 import os
 import gym
 from gym import spaces
-from typing import Dict
 import numpy as np
 import numba
 
@@ -11,6 +11,9 @@ import numba
 # Robot Joint Limits
 joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.])
 joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
+
+# Add Robot relative frame
+robot_pos_offset = np.array([0.0, 0.0, 0.59])
 
 
 @numba.jit(nopython=True)
@@ -32,7 +35,7 @@ class Environment(gym.Env):
         self.box = self.K.addFrame("box")
         self.box.setShape(ry.ST.ssBox, [.05, .05, .05, 0])
         self.box.setPosition([0, 0, 1.2])
-        self.box.setMass(1.0)
+        self.box.setMass(5.0)
         self.box.setContact(-1)
 
         self.K.getFrameState()
@@ -95,7 +98,7 @@ class Environment(gym.Env):
         self.K.setJointState(smooth_q)
 
     def _robot_step(self, action: np.ndarray) -> None:
-        action = action + np.array([0.0, 0.0, 0.59])
+        action += robot_pos_offset
         F = self.K.feature(ry.FS.position, [self.frame])
         y1, J1 = F.eval(self.K)
 
@@ -116,23 +119,47 @@ class Environment(gym.Env):
             self.S.step(q, self.tau, ry.ControlMode.position)
             sleep(self.tau * 10)
 
-    def MoveP2P(self, reach_agent, target: np.ndarray) -> None:
+    def MoveP2P(self, reach_agent, goal: np.ndarray, correct_pos=False) -> np.float:
         # Read Gripper Position
         F = self.K.feature(ry.FS.position, [self.frame])
         y = F.eval(self.K)[0]
 
         # Add 'Goal Marker' to the 'target'
-        self.goal_marker.setPosition(target)
+        self.goal_marker.setPosition(goal)
 
         # Solve trajectory using agent to reach the target
         for _ in range(10):
             F = self.K.feature(ry.FS.position, [self.frame])
             y = F.eval(self.K)[0]
-            state = np.concatenate((y, target))
+            state = np.concatenate((y, goal))
             action = reach_agent.choose_action(state)
             self._robot_step(action)
 
-        return np.linalg.norm(target - y) * 1e3
+        error = np.linalg.norm(goal - y) * 1e3
+
+        # Correct goal position
+        if correct_pos:
+            for _ in range(3):
+                self._robot_step(goal - robot_pos_offset)
+
+        return error
+
+    def Grasp(self, state: string) -> None:
+        # Gripping Close
+        if state == 'close':
+            self.S.closeGripper("gripper")
+            while not self.S.getGripperIsGrasping("gripper"):
+                pass
+
+        # Gripping Close
+        elif state == 'open':
+            self.S.openGripper("gripper")
+            while self.S.getGripperIsGrasping("gripper"):
+                pass
+
+        else:
+            raise ValueError(
+                f'This grasp argument: {state} is not implemented')
 
     def reset(self) -> None:
         # Reset the state of the environment to an initial state
