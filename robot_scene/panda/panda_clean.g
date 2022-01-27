@@ -38,9 +38,9 @@ panda_link7_1(panda_joint7) 	{  shape:mesh  mesh:'meshes/visual/link7.ply' Q:<-0
 panda_link7_0(panda_joint7) 	{  shape:mesh  color:[ 0.8 0.2 0.2 0.2 ]  mesh:'meshes/collision/link7.stl' noVisual, contact:-2  Q:<-0 -0 -0 -0.707107 0 -0.707107 0> }
 
 panda_link7>panda_joint8(panda_joint7) 	{  Q:<0.107 0 2.37588e-17 -0.707107 0 -0.707107 0> }
-panda_joint8(panda_link7>panda_joint8) 	{  joint:rigid ctrl_H:1 }
+panda_joint8(panda_link7>panda_joint8) 	{  ctrl_H:1 }
 panda_link8>panda_hand_joint(panda_joint8) 	{  Q:<0 0 0 0.92388 0 0 -0.382683> }
-panda_hand_joint(panda_link8>panda_hand_joint) 	{  joint:rigid ctrl_H:1 }
+panda_hand_joint(panda_link8>panda_hand_joint) 	{  ctrl_H:1 }
 panda_hand_1(panda_hand_joint) 	{  shape:mesh  mesh:'meshes/visual/hand.ply'  visual, color:[.9 .9 .9] }
 panda_hand_0(panda_hand_joint) 	{  shape:mesh  color:[ 0.8 0.2 0.2 0.2 ]  mesh:'meshes/collision/hand.stl' noVisual, contact:-2  }
 panda_hand>panda_finger_joint1(panda_hand_joint) 	{  Q:<0 0 0.0584 0.707107 0 0 0.707107> }

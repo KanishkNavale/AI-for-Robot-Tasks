@@ -33,17 +33,17 @@ class Environment(gym.Env):
 
         # Add box for robot tending
         self.box = self.K.addFrame("box")
-        self.box.setShape(ry.ST.ssBox, [.05, .05, .05, 0])
+        self.box.setShape(ry.ST.cylinder, [.05, .02])
         self.box.setPosition([0, 0, 1.2])
-        self.box.setMass(5.0)
+        self.box.setQuaternion([np.pi, 0, 0, 0])
+        self.box.setMass(100.0)
         self.box.setContact(-1)
 
         self.K.getFrameState()
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
-        self.K.selectJoints(["finger1", "finger2"], True)
 
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
-        self.frame = 'gripperCenter'
+        self.frame = 'gripper'
 
         # Init. gym environment
         self.tau = 1e-2
@@ -88,6 +88,7 @@ class Environment(gym.Env):
                            np.array([0.1, 0.05, 1.2]))
         f = self.K.getFrame("box")
         f.setPosition(position)
+        f.setQuaternion([np.pi, 0, 0, 0])
         self.S.setState(self.K.getFrameState())
         self.S.step([], 0.01, ry.ControlMode.none)
 
@@ -98,6 +99,8 @@ class Environment(gym.Env):
         self.K.setJointState(smooth_q)
 
     def _robot_step(self, action: np.ndarray) -> None:
+        self.K.selectJoints(["finger1", "finger2"], True)
+
         action += robot_pos_offset
         F = self.K.feature(ry.FS.position, [self.frame])
         y1, J1 = F.eval(self.K)
@@ -145,17 +148,22 @@ class Environment(gym.Env):
         return error
 
     def Grasp(self, state: string) -> None:
+
         # Gripping Close
         if state == 'close':
+            q = self.S.get_q()
             self.S.closeGripper("gripper")
-            while not self.S.getGripperIsGrasping("gripper"):
-                pass
+            for _ in range(100):
+                self.S.step(q, self.tau, ry.ControlMode.position)
+                sleep(0.01)
 
         # Gripping Close
         elif state == 'open':
+            q = self.S.get_q()
             self.S.openGripper("gripper")
-            while self.S.getGripperIsGrasping("gripper"):
-                pass
+            for _ in range(100):
+                self.S.step(q, self.tau, ry.ControlMode.position)
+                sleep(0.01)
 
         else:
             raise ValueError(
