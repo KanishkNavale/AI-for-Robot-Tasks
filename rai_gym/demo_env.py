@@ -27,9 +27,18 @@ class Environment(gym.Env):
 
         # Load the robot configuration file
         self.K = ry.Config()
-        self.K.clear()
+
+        # Add box for robot tending
+        self.box = self.K.addFrame("box")
+        self.box.setShape(ry.ST.ssBox, [.05, .05, .05, 0])
+        self.box.setPosition([0, 0, 1.2])
+        self.box.setMass(1.0)
+        self.box.setContact(-1)
+
+        self.K.getFrameState()
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
         self.K.selectJoints(["finger1", "finger2"], True)
+
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
         self.frame = 'gripperCenter'
 
@@ -51,12 +60,33 @@ class Environment(gym.Env):
 
         # Init. Goal Indicator
         self.goal_marker = self.K.addFrame("goal_marker")
-        self.goal_marker.setShape(ry.ST.sphere, [0.05])
+        self.goal_marker.setShape(ry.ST.sphere, [0.02])
         self.goal_marker.setColor([0, 1, 0])
 
         # Pre-Reset the env.
-        self.random_target = np.zeros(3)
         self.reset()
+
+    def _dead_sim(self, iterations=1000) -> None:
+        for _ in range(iterations):
+            self.S.step([], 0.01, ry.ControlMode.none)
+
+    def _randomize_box_color(self) -> None:
+        # Color Scheme
+        red = [1, 0, 0]
+        blue = [0, 0, 1]
+        colors = [red, blue]
+        self.box.setColor(colors[np.random.randint(len(colors))])
+
+    def _randomize_box_position(self) -> None:
+        # Reset Position & color of the box
+        position = np.random.uniform(-1.5, 1.5, (3,))
+        position = np.clip(position,
+                           np.array([-0.1, -0.1, 1.1]),
+                           np.array([0.1, 0.05, 1.2]))
+        f = self.K.getFrame("box")
+        f.setPosition(position)
+        self.S.setState(self.K.getFrameState())
+        self.S.step([], 0.01, ry.ControlMode.none)
 
     def _robot_reset(self, factor: float = 0.1) -> None:
         # Generate Random Robot pose and set
@@ -106,6 +136,7 @@ class Environment(gym.Env):
 
     def reset(self) -> None:
         # Reset the state of the environment to an initial state
-        self.current_episode = 0
-        self.done = False
+        self._randomize_box_color()
+        self._randomize_box_position()
+        self._dead_sim()
         self._robot_reset()
