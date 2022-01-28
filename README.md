@@ -29,7 +29,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     alias pip='pip3'
 
     # RAI Paths
-    export PATH="$HOME/rai-python/rai/bin:$PATH"
+    export PATH="$HOME/rai/bin:$PATH"
     export PYTHONPATH="${PYTHONPATH}:/usr/local/lib/rai"
 
     # Practical Robotics Lab Project Package
@@ -49,8 +49,23 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     pip install -r requirements.txt
     ```
 
-## Project Build Notes & Status
-[-- Link --](project_progress.md)
+## 1. Structure of the 'DDPG' Algorithm
+
+<img src="https://www.researchgate.net/publication/342406026/figure/fig1/AS:906065046679559@1593034149792/Actor-critic-structure-for-DDPG-with-TSC.png" width="450">
+
+## 2. Why Use Prioritized Experience Replay Buffer ?
+
+|Without|With|
+|:--:|:--:|
+|<img src="/home/kanishk/robotics-lab-project/presentation/pictures/without_per.png" width="350">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
+
+## 3. Training DDPG Agent for Point-to-Point Robot Trajectory
+
+<img src="presentation/gifs/Reach_Training.gif" width="650">
+
+|Training Profile|Testing Profile|
+|:--:|:--:|
+|<img src="training_ground/check_PyTorch/data/Training_Profile.png" width="300">| <img src="training_ground/check_PyTorch/data/Distance_Profile.png" width="300">|
 
 ## Developers
 

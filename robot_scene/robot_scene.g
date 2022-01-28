@@ -12,11 +12,7 @@ pedestal (base){
     joint:rigid
 }
 
-table (base){
-    shape:mesh, color:[1, 1, 1, 1], mesh:'meshes/table.STL'
-    Q:[0, 0, 0.91, 0.707105, 0.707108, 0, 0],
-    joint:rigid
-}
+
 
 camera_stand (base){
     shape:mesh, color:[1, 1, 1, 1], mesh:'meshes/camera_stand.STL'
