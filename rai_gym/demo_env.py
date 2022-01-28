@@ -8,12 +8,12 @@ import numpy as np
 import numba
 
 
+# Add Robot relative frame
+robot_pos_offset = np.array([0.0, 0.0, 0.59])
+
 # Robot Joint Limits
 joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.])
 joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
-
-# Add Robot relative frame
-robot_pos_offset = np.array([0.0, 0.0, 0.59])
 
 
 @numba.jit(nopython=True)
@@ -31,15 +31,20 @@ class Environment(gym.Env):
         # Load the robot configuration file
         self.K = ry.Config()
 
-        # Add box for robot tending
-        self.obj_quat = np.array([np.pi, 0, 0, 0])
-        self.box = self.K.addFrame("box")
-        self.box.setShape(ry.ST.cylinder, [.05, .02])
-        self.box.setPosition([0, 0, 1.2])
-        self.box.setQuaternion(self.obj_quat)
-        self.box.setMass(100.0)
-        self.box.setContact(-1)
-        self.box.setColor([1, 0, 0])
+        # Add Objects at random position
+        self.obj1 = self.K.addFrame("Obj1")
+        self.obj1.setShape(ry.ST.cylinder, [.05, .02])
+        self.obj1.setColor([1, 0, 0])
+        self.obj1.setQuaternion(np.array([np.pi, 0, 0, 0]))
+        self.obj1.setMass(1.0)
+        self.obj1.setContact(-2)
+
+        self.obj2 = self.K.addFrame("Obj2")
+        self.obj2.setShape(ry.ST.cylinder, [.05, .02])
+        self.obj2.setColor([0, 0, 1])
+        self.obj2.setQuaternion(np.array([np.pi, 0, 0, 0]))
+        self.obj2.setMass(1.0)
+        self.obj2.setContact(-2)
 
         self.K.getFrameState()
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
@@ -60,9 +65,6 @@ class Environment(gym.Env):
         self.goal_marker.setShape(ry.ST.sphere, [0.02])
         self.goal_marker.setColor([0, 1, 0])
 
-        # Color alternator
-        self.last_issued_color = 'red'
-
         # Init. reset
         self.reset()
 
@@ -70,26 +72,26 @@ class Environment(gym.Env):
         for _ in range(iterations):
             self.S.step([], 0.01, ry.ControlMode.none)
 
-    def _randomize_box_color(self) -> None:
-        # Reset Color Scheme
-        red = [1.0, 0.0, 0.0]
-        blue = [0.0, 0.0, 1.0]
-        if self.last_issued_color == 'red':
-            self.box.setColor(blue)
-            self.last_issued_color = 'blue'
-        else:
-            self.box.setColor(red)
-            self.last_issued_color = 'red'
-
     def _randomize_box_position(self) -> None:
         # Get Object
-        f = self.K.getFrame("box")
+        f = self.K.getFrame("Obj1")
 
         # Reset Position & color of the box
         position = np.random.uniform(-1.5, 1.5, (3,))
         position = np.clip(position,
-                           np.array([-0.14, -0.14, 0.9]),
-                           np.array([0.14, 0.14, 1.5]))
+                           np.array([-0.14, 0, 0.9]),
+                           np.array([0.14, 0, 1.5]))
+        f.setPosition(position)
+        f.setQuaternion([np.pi, 0, 0, 0])
+
+        # Get Object
+        f = self.K.getFrame("Obj2")
+
+        # Reset Position & color of the box
+        position = np.random.uniform(-1.5, 1.5, (3,))
+        position = np.clip(position,
+                           np.array([0, 0.14, 0.9]),
+                           np.array([0, 0.14, 1.5]))
         f.setPosition(position)
         sleep(0.01)
         f.setQuaternion([np.pi, 0, 0, 0])
@@ -115,17 +117,16 @@ class Environment(gym.Env):
             F = self.K.feature(ry.FS.position, [self.frame])
             y1, J1 = F.eval(self.K)
 
-            F = self.K.feature(ry.FS.scalarProductYZ, [
-                               self.frame, "panda_link0"])
+            F = self.K.feature(ry.FS.scalarProductZZ, [
+                self.frame, "panda_link0"])
             y2, J2 = F.eval(self.K)
 
             Y = np.hstack((action - y1, 1.0 - y2))
             J = np.vstack((J1, J2))
 
             q = _update_q(q, J, Y)
-
             self.S.step(q, self.tau, ry.ControlMode.position)
-            sleep(self.tau * 10)
+            sleep(0.05)
 
     def MoveP2P(self, goal: np.ndarray, correct_pos=False) -> np.float:
         # Read Gripper Position
@@ -153,30 +154,28 @@ class Environment(gym.Env):
         return error
 
     def Grasp(self, state: string) -> None:
+        q = self.S.get_q()
 
         # Gripping Close
         if state == 'close':
-            q = self.S.get_q()
             self.S.closeGripper("gripper")
-            for _ in range(100):
-                self.S.step(q, self.tau, ry.ControlMode.position)
-                sleep(0.01)
 
         # Gripping Close
         elif state == 'open':
-            q = self.S.get_q()
             self.S.openGripper("gripper")
-            for _ in range(100):
-                self.S.step(q, self.tau, ry.ControlMode.position)
-                sleep(0.01)
 
         else:
             raise ValueError(
                 f'This grasp argument: {state} is not implemented')
 
+        for _ in range(1000):
+            self.S.step(q, self.tau, ry.ControlMode.position)
+
+    def Wait(self, seconds: float):
+        sleep(seconds * 1e-3)
+
     def reset(self) -> None:
         # Reset the state of the environment to an initial state
-        self._randomize_box_color()
         self._randomize_box_position()
         self._dead_sim()
         self._robot_reset()
