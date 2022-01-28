@@ -18,7 +18,7 @@ if __name__ == '__main__':
     score_history = []
     avg_history = []
     distance_history = []
-    n_games = 200
+    n_games = 500
 
     # Init. ENV. Params.
     n_actions = env.action_space.shape[0]

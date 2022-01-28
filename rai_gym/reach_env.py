@@ -43,7 +43,7 @@ class Reach_Environment(gym.Env):
         self.max_episode_length = 250
         self.tau = 1e-2
         self.low = np.array([-0.15, -0.15, 0.2])
-        self.high = np.array([0.15, 0.15, 0.7])
+        self.high = np.array([0.15, 0.15, 0.6])
 
         # Init. spaces
         self.action_space = spaces.Box(
@@ -56,27 +56,15 @@ class Reach_Environment(gym.Env):
             high=np.hstack((self.high, self.high)),
             dtype=np.float64)
 
-        # Init. focal length
-        f = 0.895
-        f = f * 360.0
-        self.intrinsic = [f, f, 320.0, 180.0]
-
-        # Init. Camera into Simulation World
-        self.K.setJointState(np.zeros_like(joint_low))
-        self.S.addSensor("camera")
-        self.background_rgb, self.background_depth = self.S.getImageAndDepth()
-
         # Goal Indicator
         self.obj = self.K.addFrame("object")
         self.obj.setPosition([0, 0, 0.9])
-        self.obj.setShape(ry.ST.ssBox, [.05, .05, .1, 0])
-        self.obj.setColor([1, 0, 1])
+        self.obj.setShape(ry.ST.sphere, [0.02])
+        self.obj.setColor([0, 1, 0])
 
         # Pre-Reset the env.
         self.random_target = np.zeros(3)
         self.reset()
-
-        # S.addImp(ry.ImpType.objectImpulses, ['obj0'], [])
 
     def _random_config_space(self, factor=0.1):
         q = np.random.rand(joint_low.shape[0],)
@@ -93,9 +81,8 @@ class Reach_Environment(gym.Env):
         self.K.setJointState(self._random_config_space())
 
         # Move the robot to random position
-        position = np.random.uniform(-1.5, 1.5, (3,))
-        position = np.clip(position, self.low, self.high)
-        position[-1] += 0.59
+        position = np.random.uniform(-0.15, 0.15, (3,))
+        position[-1] = np.random.uniform(0.8, 1.2)
         self.obj.setPosition(position)
 
         return self.obj.getPosition()
@@ -131,20 +118,19 @@ class Reach_Environment(gym.Env):
         F = self.K.feature(ry.FS.position, [self.frame])
         y1, J1 = F.eval(self.K)
 
-        while not np.allclose(signal, y1):
+        for _ in range(self.IK_steps):
             q = np.array(self.K.getJointState())
             F = self.K.feature(ry.FS.position, [self.frame])
             y1, J1 = F.eval(self.K)
 
-            F = self.K.feature(ry.FS.scalarProductYZ, [
-                               self.frame, "panda_link0"])
+            F = self.K.feature(ry.FS.scalarProductZZ, [
+                self.frame, "panda_link0"])
             y2, J2 = F.eval(self.K)
 
             Y = np.hstack((signal - y1, 1.0 - y2))
             J = np.vstack((J1, J2))
 
             q = _update_q(q, J, Y)
-
             self.S.step(q, self.tau, ry.ControlMode.position)
 
         self.current_episode += 1
@@ -190,7 +176,6 @@ class Reach_Environment(gym.Env):
 
         reward, done = self.compute_reward(
             next_state['y'], self.random_target)
-
         return next_state, reward, done
 
     def reset(self):
