@@ -1,5 +1,5 @@
 gym==0.21.0
 matplotlib==3.5.1
 numba==0.54.1
-numpy==1.17.4
+numpy==1.21.0
 torch==1.10.1+cu113
