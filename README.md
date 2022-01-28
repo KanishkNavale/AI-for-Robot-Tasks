@@ -61,11 +61,11 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
 ## 3. Training DDPG Agent for Point-to-Point Robot Trajectory
 
-<img src="presentation/gifs/Reach_Training.gif" width="650">
+<img src="presentation/gifs/Reach_Training.gif" width="700">
 
 |Training Profile|Testing Profile|
 |:--:|:--:|
-|<img src="training_ground/check_PyTorch/data/Training_Profile.png" width="300">| <img src="training_ground/check_PyTorch/data/Distance_Profile.png" width="300">|
+|<img src="training_ground/check_PyTorch/data/Training_Profile.png" width="350">| <img src="training_ground/check_PyTorch/data/Distance_Profile.png" width="350">|
 
 ## Developers
 
