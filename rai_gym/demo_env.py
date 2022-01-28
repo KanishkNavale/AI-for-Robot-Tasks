@@ -37,14 +37,14 @@ class Environment(gym.Env):
         self.obj1.setColor([1, 0, 0])
         self.obj1.setQuaternion(np.array([np.pi, 0, 0, 0]))
         self.obj1.setMass(1.0)
-        self.obj1.setContact(-1)
+        self.obj1.setContact(-2)
 
         self.obj2 = self.K.addFrame("Obj2")
         self.obj2.setShape(ry.ST.cylinder, [.05, .02])
         self.obj2.setColor([0, 0, 1])
         self.obj2.setQuaternion(np.array([np.pi, 0, 0, 0]))
         self.obj2.setMass(1.0)
-        self.obj2.setContact(-1)
+        self.obj2.setContact(-2)
 
         self.K.getFrameState()
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
@@ -112,7 +112,7 @@ class Environment(gym.Env):
         F = self.K.feature(ry.FS.position, [self.frame])
         y1, J1 = F.eval(self.K)
 
-        for _ in range(self.IK_steps):
+        while not np.allclose(action, y1):
             q = np.array(self.K.getJointState())
             F = self.K.feature(ry.FS.position, [self.frame])
             y1, J1 = F.eval(self.K)
@@ -126,6 +126,7 @@ class Environment(gym.Env):
 
             q = _update_q(q, J, Y)
             self.S.step(q, self.tau, ry.ControlMode.position)
+            sleep(0.05)
 
     def MoveP2P(self, goal: np.ndarray, correct_pos=False) -> np.float:
         # Read Gripper Position
@@ -153,24 +154,25 @@ class Environment(gym.Env):
         return error
 
     def Grasp(self, state: string) -> None:
+        q = self.S.get_q()
 
         # Gripping Close
         if state == 'close':
-            q = self.S.get_q()
             self.S.closeGripper("gripper")
-            for _ in range(100):
-                self.S.step(q, self.tau, ry.ControlMode.position)
 
         # Gripping Close
         elif state == 'open':
-            q = self.S.get_q()
             self.S.openGripper("gripper")
-            for _ in range(100):
-                self.S.step(q, self.tau, ry.ControlMode.position)
 
         else:
             raise ValueError(
                 f'This grasp argument: {state} is not implemented')
+
+        for _ in range(1000):
+            self.S.step(q, self.tau, ry.ControlMode.position)
+
+    def Wait(self, seconds: float):
+        sleep(seconds * 1e-3)
 
     def reset(self) -> None:
         # Reset the state of the environment to an initial state
