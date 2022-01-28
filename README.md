@@ -57,7 +57,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
 |Without|With|
 |:--:|:--:|
-|<img src="/home/kanishk/robotics-lab-project/presentation/pictures/without_per.png" width="350">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
+|<img src="presentation/pictures/without_per.png" width="350">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
 
 ## 3. Training DDPG Agent for Point-to-Point Robot Trajectory
 
