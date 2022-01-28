@@ -1,4 +1,4 @@
-from rai_gym.env import RAI_Env
+from rai_gym.reach_env import Reach_Environment
 from rl_agents.DDPG import Agent
 import os
 import numpy as np
@@ -7,7 +7,7 @@ import copy
 if __name__ == '__main__':
 
     # Init. Environment
-    env = RAI_Env(reward_type='dense')
+    env = Reach_Environment(reward_type='dense')
     env.reset()
 
     # Init. Datapath
@@ -18,10 +18,18 @@ if __name__ == '__main__':
     score_history = []
     avg_history = []
     distance_history = []
-    n_games = 250
+    n_games = 200
+
+    # Init. ENV. Params.
+    n_actions = env.action_space.shape[0]
+    obs_shape = env.observation_space.shape[0]
+    max_action = env.action_space.high
+    min_action = env.action_space.low
 
     # Init. Agent
-    agent = Agent(env, data_path, n_games)
+    agent = Agent(input_dims=obs_shape, n_actions=n_actions,
+                  max_action=max_action, min_action=min_action,
+                  datapath=data_path, n_games=n_games)
 
     for i in range(n_games):
         score = 0

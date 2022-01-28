@@ -1,4 +1,4 @@
-from rai_gym.env import RAI_Env
+from rai_gym.reach_env import RAI_Env
 from rl_agents.DDPG import Agent
 import os
 import numpy as np
