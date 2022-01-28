@@ -109,15 +109,14 @@ class Actor(nn.Module):
 
 
 class Agent:
-    def __init__(self, env, datapath, n_games, alpha=0.0001,
+    def __init__(self, input_dims, n_actions, max_action, min_action, datapath, n_games, alpha=0.0001,
                  beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
                  noise='normal', per_alpha=0.6, per_beta=0.4, enable_HER=False):
 
-        self.env = env
         self.gamma = T.tensor(gamma, dtype=T.float32).to(device)
         self.tau = T.tensor(tau, dtype=T.float32).to(device)
-        self.n_actions = env.action_space.shape[0]
-        self.obs_shape = env.observation_space.shape[0]
+        self.n_actions = n_actions
+        self.obs_shape = input_dims
         self.datapath = datapath
         self.n_games = n_games
         self.optim_steps = 0
@@ -128,10 +127,8 @@ class Agent:
 
         self.batch_size = batch_size
         self.noise = noise
-        self.max_action = T.tensor(
-            env.action_space.high, dtype=T.float32).to(device)
-        self.min_action = T.tensor(
-            env.action_space.low, dtype=T.float32).to(device)
+        self.max_action = T.tensor(max_action, dtype=T.float32).to(device)
+        self.min_action = T.tensor(min_action, dtype=T.float32).to(device)
 
         self.actor = Actor(self.obs_shape, self.n_actions, alpha, name='actor')
         self.critic = Critic(

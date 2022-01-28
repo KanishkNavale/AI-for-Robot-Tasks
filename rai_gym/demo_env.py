@@ -25,19 +25,21 @@ def _update_q(q, J, Y):
 class Environment(gym.Env):
     """Custom Environment that follows gym interface"""
 
-    def __init__(self):
+    def __init__(self, reach_skill):
         super(Environment, self).__init__()
 
         # Load the robot configuration file
         self.K = ry.Config()
 
         # Add box for robot tending
+        self.obj_quat = np.array([np.pi, 0, 0, 0])
         self.box = self.K.addFrame("box")
         self.box.setShape(ry.ST.cylinder, [.05, .02])
         self.box.setPosition([0, 0, 1.2])
-        self.box.setQuaternion([np.pi, 0, 0, 0])
+        self.box.setQuaternion(self.obj_quat)
         self.box.setMass(100.0)
         self.box.setContact(-1)
+        self.box.setColor([1, 0, 0])
 
         self.K.getFrameState()
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
@@ -50,23 +52,18 @@ class Environment(gym.Env):
         self.low = np.array([-0.12, -0.12, 0.2])
         self.high = np.array([0.12, 0.12, 0.8])
 
-        # Init. Shapes for ENV.
-        self.action_space = spaces.Box(
-            low=self.low,
-            high=self.high,
-            dtype=np.float64)
-
-        self.observation_space = spaces.Box(
-            low=np.hstack((self.low, self.low)),
-            high=np.hstack((self.high, self.high)),
-            dtype=np.float64)
+        # Register Agents
+        self.reach_skill = reach_skill
 
         # Init. Goal Indicator
         self.goal_marker = self.K.addFrame("goal_marker")
         self.goal_marker.setShape(ry.ST.sphere, [0.02])
         self.goal_marker.setColor([0, 1, 0])
 
-        # Pre-Reset the env.
+        # Color alternator
+        self.last_issued_color = 'red'
+
+        # Init. reset
         self.reset()
 
     def _dead_sim(self, iterations=1000) -> None:
@@ -74,21 +71,29 @@ class Environment(gym.Env):
             self.S.step([], 0.01, ry.ControlMode.none)
 
     def _randomize_box_color(self) -> None:
-        # Color Scheme
-        red = [1, 0, 0]
-        blue = [0, 0, 1]
-        colors = [red, blue]
-        self.box.setColor(colors[np.random.randint(len(colors))])
+        # Reset Color Scheme
+        red = [1.0, 0.0, 0.0]
+        blue = [0.0, 0.0, 1.0]
+        if self.last_issued_color == 'red':
+            self.box.setColor(blue)
+            self.last_issued_color = 'blue'
+        else:
+            self.box.setColor(red)
+            self.last_issued_color = 'red'
 
     def _randomize_box_position(self) -> None:
+        # Get Object
+        f = self.K.getFrame("box")
+
         # Reset Position & color of the box
         position = np.random.uniform(-1.5, 1.5, (3,))
         position = np.clip(position,
-                           np.array([-0.1, -0.1, 1.1]),
-                           np.array([0.1, 0.05, 1.2]))
-        f = self.K.getFrame("box")
+                           np.array([-0.14, -0.14, 0.9]),
+                           np.array([0.14, 0.14, 1.5]))
         f.setPosition(position)
+        sleep(0.01)
         f.setQuaternion([np.pi, 0, 0, 0])
+
         self.S.setState(self.K.getFrameState())
         self.S.step([], 0.01, ry.ControlMode.none)
 
@@ -122,7 +127,7 @@ class Environment(gym.Env):
             self.S.step(q, self.tau, ry.ControlMode.position)
             sleep(self.tau * 10)
 
-    def MoveP2P(self, reach_agent, goal: np.ndarray, correct_pos=False) -> np.float:
+    def MoveP2P(self, goal: np.ndarray, correct_pos=False) -> np.float:
         # Read Gripper Position
         F = self.K.feature(ry.FS.position, [self.frame])
         y = F.eval(self.K)[0]
@@ -131,11 +136,11 @@ class Environment(gym.Env):
         self.goal_marker.setPosition(goal)
 
         # Solve trajectory using agent to reach the target
-        for _ in range(10):
+        for _ in range(5):
             F = self.K.feature(ry.FS.position, [self.frame])
             y = F.eval(self.K)[0]
             state = np.concatenate((y, goal))
-            action = reach_agent.choose_action(state)
+            action = self.reach_skill.choose_action(state)
             self._robot_step(action)
 
         error = np.linalg.norm(goal - y) * 1e3

@@ -8,8 +8,8 @@ import numba
 
 
 # Robot Joint Limits
-joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.])
-joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
+joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0])
+joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7])
 
 
 @numba.jit(nopython=True)
@@ -35,15 +35,15 @@ class Reach_Environment(gym.Env):
         self.K.addFile(os.path.abspath('robot_scene/robot_scene.g'))
         self.K.selectJoints(["finger1", "finger2"], True)
         self.S = ry.Simulation(self.K, ry.SimulatorEngine.bullet, True)
-        self.frame = 'gripperCenter'
+        self.frame = 'gripper'
         self.IK_steps = 5
 
         # Init. gym environment
         self.reward_type = reward_type
         self.max_episode_length = 250
         self.tau = 1e-2
-        self.low = np.array([-0.12, -0.12, 0.2])
-        self.high = np.array([0.12, 0.12, 0.8])
+        self.low = np.array([-0.15, -0.15, 0.2])
+        self.high = np.array([0.15, 0.15, 0.7])
 
         # Init. spaces
         self.action_space = spaces.Box(
@@ -94,9 +94,8 @@ class Reach_Environment(gym.Env):
 
         # Move the robot to random position
         position = np.random.uniform(-1.5, 1.5, (3,))
-        position = np.clip(position,
-                           np.array([-0.12, -0.12, 0.9]),
-                           np.array([0.12, 0.12, 1.4]))
+        position = np.clip(position, self.low, self.high)
+        position[-1] += 0.59
         self.obj.setPosition(position)
 
         return self.obj.getPosition()
