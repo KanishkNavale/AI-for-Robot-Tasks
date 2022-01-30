@@ -1,8 +1,8 @@
-# Robotics Lab Project 2021-22
+# Object Sorting using Deep Reinforcement Learning based Robot & Computer Vision
 
 This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
-## Proof of Concept
+### Proof of Concept
 
 1. OpenAI Gym Environments,
 
@@ -18,7 +18,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 2. Clone this repository.
 
     ```bash
-    git clone https://github.com/KanishkNavale/robotics-lab-project
+    git clone --recursive https://github.com/KanishkNavale/robotics-lab-project
     ```
 
 3. Add these in the .bashrc file
@@ -53,11 +53,15 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
 <img src="https://www.researchgate.net/publication/342406026/figure/fig1/AS:906065046679559@1593034149792/Actor-critic-structure-for-DDPG-with-TSC.png" width="450">
 
-### 2. Using Prioritized Experience Replay Buffer + Parametric Exploration Noise
+### 2. Outcomes of using Prioritized Experience Replay Buffer + Parametric Exploration Noise
 
 |Without|Parametric Noise Overview|With PER + Parametric Noise
 |:--:|:--:|:--:|
 |<img src="presentation/pictures/without_per.png" width="250">| <img src="presentation/pictures/p_diag_1.png" width="250">|<img src="proof_of_concept/data/Training Profile.png" width="250">|
+
+* Parameter space noise allows reinforcement learning algorithms to explore by perturbing parameters instead of actions, often leading to significantly improved exploration performance. ([Source](https://openreview.net/forum?id=ByBAl2eAZ))
+
+* Prioritized Experience Replay is a type of experience replay in reinforcement learning where we In more frequently replay transitions with high expected learning progress, as measured by the magnitude of their temporal-difference (TD) error. ([Source](https://paperswithcode.com/method/prioritized-experience-replay#:~:text=Prioritized%20Experience%20Replay%20is%20a,%2Ddifference%20(TD)%20error.))
 
 ### 3. Training DDPG Agent for Point-to-Point Robot Trajectory
 
