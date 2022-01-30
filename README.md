@@ -53,11 +53,9 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
 About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algorithm and can be thought of as DQN for continuous action spaces. It learns a policy (the actor) and a Q-function (the critic). The policy is deterministic and its parameters are updated based on applying the chain rule to the Q-function learnt (expected reward). The Q-function is updated based on the Bellman equation, as in Q learning. ([Source & Further Reading](https://keras-rl.readthedocs.io/en/latest/agents/ddpg/))
 
-|Vanilla DDPG Agent|
-|:--:|
-|<img src="presentation/pictures/Vanilla DDPG.png" width="550">|
-|DDPG Agent + Parametric Exploration Noise + PER|
-|<img src="presentation/pictures/Improved DDPG.png" width="550">|
+|Vanilla DDPG Agent|DDPG Agent + Parametric Exploration Noise + PER|
+|:--:|:--:|
+|<img src="presentation/pictures/Vanilla DDPG.png" width="400">|<img src="presentation/pictures/Improved DDPG.png" width="375">|
 
 ### 2. Outcomes of using Prioritized Experience Replay Buffer (PER) + Parametric Exploration Noise
 
