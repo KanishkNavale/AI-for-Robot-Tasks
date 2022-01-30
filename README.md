@@ -56,8 +56,10 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
 |Vanilla DDPG Agent|
 |:--:|
 |<img src="presentation/pictures/Vanilla DDPG.png" width="550">|
+|DDPG Agent + Parametric Exploration Noise + PER|
+|<img src="presentation/pictures/Improved DDPG.png" width="550">|
 
-### 2. Outcomes of using Prioritized Experience Replay Buffer + Parametric Exploration Noise
+### 2. Outcomes of using Prioritized Experience Replay Buffer (PER) + Parametric Exploration Noise
 
 |Without|Parametric Noise Overview|With PER + Parametric Noise
 |:--:|:--:|:--:|
