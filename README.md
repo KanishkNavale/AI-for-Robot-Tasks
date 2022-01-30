@@ -11,7 +11,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
         |:--:|:--:|
         |<img src="https://github.com/KanishkNavale/Trajectory-Planning-using-HER-and-Reward-Engineering/blob/master/HER/data/test.gif?raw=true" width="300">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
 
-## Repository Setup Instructions
+### Repository Setup Instructions
 
 1. Clone & build [rai](https://github.com/MarcToussaint/rai) from the github following it's installation instructions.
 
@@ -49,17 +49,17 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     pip install -r requirements.txt
     ```
 
-## 1. Structure of the 'DDPG' Algorithm
+### 1. Structure of the Vanilla 'DDPG' Algorithm
 
 <img src="https://www.researchgate.net/publication/342406026/figure/fig1/AS:906065046679559@1593034149792/Actor-critic-structure-for-DDPG-with-TSC.png" width="450">
 
-## 2. Why Use Prioritized Experience Replay Buffer ?
+### 2. Using Prioritized Experience Replay Buffer + Parametric Exploration Noise
 
-|Without|With|
-|:--:|:--:|
-|<img src="presentation/pictures/without_per.png" width="350">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
+|Without|Parametric Noise Overview|With PER + Parametric Noise
+|:--:|:--:|:--:|
+|<img src="presentation/pictures/without_per.png" width="250">| <img src="presentation/pictures/p_diag_1.png" width="250">|<img src="proof_of_concept/data/Training Profile.png" width="250">|
 
-## 3. Training DDPG Agent for Point-to-Point Robot Trajectory
+### 3. Training DDPG Agent for Point-to-Point Robot Trajectory
 
 <img src="presentation/gifs/Reach_Training.gif" width="700">
 
@@ -67,7 +67,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 |:--:|:--:|
 |<img src="training_ground/check_PyTorch/data/Training_Profile.png" width="350">| <img src="training_ground/check_PyTorch/data/Distance_Profile.png" width="350">|
 
-## Developers
+### Developers
 
 * Olga Klimashevska
 * Kanishk Navale
