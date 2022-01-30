@@ -49,9 +49,14 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
     pip install -r requirements.txt
     ```
 
-### 1. Structure of the Vanilla 'DDPG' Algorithm
+### 1. Engineering the Deep Deterministic Policy Gradient ([DDPG](https://arxiv.org/abs/1509.02971)) Algorithm
 
-<img src="https://www.researchgate.net/publication/342406026/figure/fig1/AS:906065046679559@1593034149792/Actor-critic-structure-for-DDPG-with-TSC.png" width="450">
+About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algorithm and can be thought of as DQN for continuous action spaces. It learns a policy (the actor) and a Q-function (the critic). The policy is deterministic and its parameters are updated based on applying the chain rule to the Q-function learnt (expected reward). The Q-function is updated based on the Bellman equation, as in Q learning. ([Source & Further Reading](https://keras-rl.readthedocs.io/en/latest/agents/ddpg/))
+
+||
+|:--:|
+|Vanilla DDPG Agent|
+|<img src="presentation/pictures/Vanilla DDPG.png" width="350">|
 
 ### 2. Outcomes of using Prioritized Experience Replay Buffer + Parametric Exploration Noise
 
@@ -61,7 +66,7 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
 
 * Parameter space noise allows reinforcement learning algorithms to explore by perturbing parameters instead of actions, often leading to significantly improved exploration performance. ([Source](https://openreview.net/forum?id=ByBAl2eAZ))
 
-* Prioritized Experience Replay is a type of experience replay in reinforcement learning where we In more frequently replay transitions with high expected learning progress, as measured by the magnitude of their temporal-difference (TD) error. ([Source](https://paperswithcode.com/method/prioritized-experience-replay#:~:text=Prioritized%20Experience%20Replay%20is%20a,%2Ddifference%20(TD)%20error.))
+* Prioritized Experience Replay is a type of experience replay in reinforcement learning frequently replay transitions with high expected learning progress are learnt more, as measured by the magnitude of their temporal-difference (TD) error. ([Source](https://paperswithcode.com/method/prioritized-experience-replay#:~:text=Prioritized%20Experience%20Replay%20is%20a,%2Ddifference%20(TD)%20error.))
 
 ### 3. Training DDPG Agent for Point-to-Point Robot Trajectory
 
