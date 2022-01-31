@@ -12,7 +12,11 @@ pedestal (base){
     joint:rigid
 }
 
-
+table (base){
+    shape:mesh, color:[1, 1, 1, 1], mesh:'meshes/table.STL'
+    Q:[0, 0, 0.91, 0.707105, 0.707108, 0, 0],
+    joint:rigid
+}
 
 camera_stand (base){
     shape:mesh, color:[1, 1, 1, 1], mesh:'meshes/camera_stand.STL'
@@ -39,3 +43,6 @@ camera(world){
     focalLength:0.895, width:640, height:360, zRange:[.5 2]
 }
 
+# Add the object --------------------------------------------------------------------
+Obj1 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(0.1 0.1 1.5)> color:[1 0 0] contact:1}
+Obj2 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(-0.11 0.11 1.5)> color:[0 0 1] contact:1}

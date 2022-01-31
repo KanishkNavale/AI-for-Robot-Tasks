@@ -11,6 +11,8 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22'.
         |:--:|:--:|
         |<img src="https://github.com/KanishkNavale/Trajectory-Planning-using-HER-and-Reward-Engineering/blob/master/HER/data/test.gif?raw=true" width="300">| <img src="proof_of_concept/data/Training Profile.png" width="350">|
 
+    * DDPG Agent is benchmarked for training rewards with PPO and TD3 Agents.
+
 ### Repository Setup Instructions
 
 1. Clone & build [rai](https://github.com/MarcToussaint/rai) from the github following it's installation instructions.
@@ -57,15 +59,17 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
 |:--:|:--:|
 |<img src="presentation/pictures/Vanilla DDPG.png" width="400">|<img src="presentation/pictures/Improved DDPG.png" width="375">|
 
-### 2. Outcomes of using Prioritized Experience Replay Buffer (PER) + Parametric Exploration Noise
+### 2. Outcomes: Using Prioritized Experience Replay Buffer + Parametric Exploration Noise
+
+* Parameter space noise allows reinforcement learning algorithms to explore by perturbing parameters instead of actions, often leading to significantly improved exploration performance. ([Source](https://openreview.net/forum?id=ByBAl2eAZ))
+
+* Prioritized Experience Replay (PER) is a type of experience replay in reinforcement learning frequently replay transitions with high expected learning progress are learnt more, as measured by the magnitude of their temporal-difference (TD) error. ([Source](https://paperswithcode.com/method/prioritized-experience-replay#:~:text=Prioritized%20Experience%20Replay%20is%20a,%2Ddifference%20(TD)%20error.))
 
 |Without|Parametric Noise Overview|With PER + Parametric Noise
 |:--:|:--:|:--:|
 |<img src="presentation/pictures/without_per.png" width="250">| <img src="presentation/pictures/p_diag_1.png" width="250">|<img src="proof_of_concept/data/Training Profile.png" width="250">|
 
-* Parameter space noise allows reinforcement learning algorithms to explore by perturbing parameters instead of actions, often leading to significantly improved exploration performance. ([Source](https://openreview.net/forum?id=ByBAl2eAZ))
-
-* Prioritized Experience Replay is a type of experience replay in reinforcement learning frequently replay transitions with high expected learning progress are learnt more, as measured by the magnitude of their temporal-difference (TD) error. ([Source](https://paperswithcode.com/method/prioritized-experience-replay#:~:text=Prioritized%20Experience%20Replay%20is%20a,%2Ddifference%20(TD)%20error.))
+* Result: The DDPG Agent is 5 times better (metric: training rewards) with PER & Parametric Exploration.
 
 ### 3. Training DDPG Agent for Point-to-Point Robot Trajectory
 
@@ -74,6 +78,13 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
 |Training Profile|Testing Profile|
 |:--:|:--:|
 |<img src="training_ground/check_PyTorch/data/Training_Profile.png" width="350">| <img src="training_ground/check_PyTorch/data/Distance_Profile.png" width="350">|
+
+* The objective is to reach the random target position using DDPG Agent.
+* For each play step in a game,
+  * Build: state = Current Robot TCP[x, y, z] | Target Location P[x, y, z]
+  * Compute: action = actor.choose_noisy_action(state)
+  * Get: next_state, reward, done = env.step(action)
+* DDPG Agent is optimized to maximize the reward for each play step over the games.
 
 ### Developers
 
