@@ -1,10 +1,12 @@
 import os
 import string
+from typing import List
 import gym
 import numpy as np
 from time import sleep
 import numba
 import cv2
+from dataclasses import dataclass
 
 import libry as ry
 
@@ -31,6 +33,13 @@ def _update_q(q, J, Y):
     """
     q += np.linalg.pinv(J) @ Y
     return q
+
+
+@dataclass
+class ObjectStrategy:
+    pickup: float
+    dropoff: float
+    color: float
 
 
 class Environment(gym.Env):
@@ -212,25 +221,14 @@ class Environment(gym.Env):
         self._Grasp('open')
         self._MoveP2P(drop + np.array([0.0, 0.0, .10]))
 
-    def _ComputeStrategy(self):
+    def _ComputeStrategy(self) -> List[ObjectStrategy]:
         """Computes the Object Tending Strategy using Camera.
+
+        Returns:
+            List[ObjectStrategy]: List of objects with their tending strategy
         """
-        rgb, depth = self.S.getImageAndDepth()
-        hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
 
-        # Implement Red Color Filter
-        lower_red = np.array([10, 100, 5])
-        upper_red = np.array([255, 255, 180])
-        red_mask = cv2.inRange(hsv, lower_red, upper_red)
-        red = cv2.bitwise_and(rgb, rgb, mask=red_mask)
-
-        # Implement Blue Color Filter
-        low_blue = np.array([94, 80, 2])
-        high_blue = np.array([126, 255, 255])
-        blue_mask = cv2.inRange(hsv, low_blue, high_blue)
-        blue = cv2.bitwise_and(rgb, rgb, mask=blue_mask)
-
-        return red, blue
+        pass
 
     def reset(self) -> None:
         # Resets the environment.

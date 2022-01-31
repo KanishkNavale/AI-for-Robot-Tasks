@@ -16,9 +16,6 @@ if __name__ == '__main__':
     env.reset()
     # env.run()
 
-    red, blue = env._ComputeStrategy()
-    pass
-
     # Get Strategy
     object = env.Obj1.getPosition()
     bin = np.array([0, 0, object[-1]])

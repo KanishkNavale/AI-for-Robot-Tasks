@@ -4,13 +4,13 @@ This repository holds the project files of 'Practical Course Robotics: WS21-22' 
 
     * The idea is to use deep reinforcement learning (DRL) algorithm for robot object tending.
     * For Proof of Concept, DRL algorithm's are benchmarked on openai-gym's 'FetchReach-v1' environment.
-    * DDPG is the best agent against PPO & TD3 considering the training rewards as metrics for evaluation.
-    * The openai-gym wrappped environment is designed in 'SolidWorks' & exported to 'rai'.
-    * As solving the env. directly takes >4M episodes the task is broken in parts to solve it faster.
-    * Wrapped functions are used to solve tasks
-    * One of these functions are moving the robot point-to-point using the trained agent & likewise.
-    * Inturn, camera is used to build up object tending strategy like sorting colored objects to it's bin.
-    * This strategy is read to tend the object in env. using the robot.
+    * DDPG is the best agent against PPO & TD3, considering the training rewards as a metric.
+    * New 'gym' wrapped 'rai' environment (env.) is designed using 'SolidWorks'.
+    * As solving the env. directly takes >4M episodes, the task is broken in parts to solve it faster.
+    * Wrapped functions are used to solve tasks.
+    * One of these functions is moving the robot point-to-point using the trained agent.
+    * Camera is used to build up object tending strategy to map the coloured objects to its coloured bin.
+    * This strategy is processed to tend the object in env. using the robot.
 
 ### Proof of Concept
 
