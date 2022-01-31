@@ -1,13 +1,6 @@
-<<<<<<< HEAD
 gym
 Box2D
 scipy
 numba
 matplotlib
-=======
-gym==0.21.0
-matplotlib==3.5.1
-numba==0.54.1
-numpy==1.21.0
->>>>>>> 4585e6ae248e8ae573acebb99be130c65793a763
 torch==1.10.1+cu113

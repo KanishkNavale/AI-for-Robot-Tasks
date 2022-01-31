@@ -4,6 +4,7 @@ import gym
 import numpy as np
 from time import sleep
 import numba
+import cv2
 
 import libry as ry
 
@@ -18,8 +19,7 @@ joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
 
 @numba.jit(nopython=True)
 def _update_q(q, J, Y):
-    """Numba Function!
-       Computes the 'q' update faster.
+    """Computes the 'q' update faster.
 
     Args:
         q ([float]): Robot configuration space position.
@@ -55,6 +55,16 @@ class Environment(gym.Env):
 
         # Register Agents
         self.reach_skill = reach_skill
+
+        # Add Camera
+        f = 0.895
+        f = f * 360.0
+        self.intrinsic = [f, f, 320.0, 180.0]
+        self.S.addSensor("camera")
+        try:
+            self.S.getImageAndDepth()
+        except Exception as e:
+            raise ValueError(f'Camera Fault:{e}')
 
         # Init. Goal Indicator
         self.goal_marker = self.K.addFrame("goal_marker")
@@ -119,7 +129,7 @@ class Environment(gym.Env):
             self.S.step(q, self.tau, ry.ControlMode.position)
             sleep(0.01)
 
-    def MoveP2P(self, goal: np.float64, correct=False) -> np.float:
+    def _MoveP2P(self, goal: np.float64, correct=False) -> np.float:
         """Use Deep Reinforcement Learning Agent to move robot to goal position.
 
         Args:
@@ -151,7 +161,7 @@ class Environment(gym.Env):
 
         return error
 
-    def Grasp(self, state: string) -> None:
+    def _Grasp(self, state: string) -> None:
         """Actuates the robot gripper to close and open.
 
         Args:
@@ -175,7 +185,7 @@ class Environment(gym.Env):
         for _ in range(1000):
             self.S.step([], 0.01, ry.ControlMode.none)
 
-    def Wait(self, seconds: float):
+    def _Wait(self, seconds: float):
         """Makes the simulation wait for defined seconds
 
         Args:
@@ -183,27 +193,46 @@ class Environment(gym.Env):
         """
         sleep(seconds * 1e-3)
 
-    def TendObject(self, pick: float, drop: float) -> None:
+    def _TendObject(self, pick: float, drop: float) -> None:
         """Performs a pick and drop cycle as per industrial standards.
 
         Args:
             pick (float): Object Pick-Up Location
             drop (float): Object Drop-Off Location
         """
-        self.Grasp('open')
+        self._Grasp('open')
 
-        self.MoveP2P(pick + np.array([0.0, 0.0, .10]))
-        self.MoveP2P(pick, True)
-        self.Grasp('close')
-        self.MoveP2P(pick + np.array([0.0, 0.0, .10]))
+        self._MoveP2P(pick + np.array([0.0, 0.0, .10]))
+        self._MoveP2P(pick, True)
+        self._Grasp('close')
+        self._MoveP2P(pick + np.array([0.0, 0.0, .10]))
 
-        self.MoveP2P(drop + np.array([0.0, 0.0, .10]))
-        self.MoveP2P(drop, True)
-        self.Grasp('open')
-        self.MoveP2P(drop + np.array([0.0, 0.0, .10]))
+        self._MoveP2P(drop + np.array([0.0, 0.0, .10]))
+        self._MoveP2P(drop, True)
+        self._Grasp('open')
+        self._MoveP2P(drop + np.array([0.0, 0.0, .10]))
+
+    def _ComputeStrategy(self):
+        """Computes the Object Tending Strategy using Camera.
+        """
+        rgb, depth = self.S.getImageAndDepth()
+        hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+
+        # Implement Red Color Filter
+        lower_red = np.array([10, 100, 5])
+        upper_red = np.array([255, 255, 180])
+        red_mask = cv2.inRange(hsv, lower_red, upper_red)
+        red = cv2.bitwise_and(rgb, rgb, mask=red_mask)
+
+        # Implement Blue Color Filter
+        low_blue = np.array([94, 80, 2])
+        high_blue = np.array([126, 255, 255])
+        blue_mask = cv2.inRange(hsv, low_blue, high_blue)
+        blue = cv2.bitwise_and(rgb, rgb, mask=blue_mask)
+
+        return red, blue
 
     def reset(self) -> None:
-        """ Resets the environment.
-        """
+        # Resets the environment.
         self._dead_sim()
         self._robot_reset()

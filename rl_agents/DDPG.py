@@ -109,7 +109,9 @@ class Actor(nn.Module):
 
 
 class Agent:
-    def __init__(self, input_dims, n_actions, max_action, min_action, datapath, n_games, alpha=0.0001,
+    def __init__(self, input_dims=6, n_actions=3,
+                 max_action=np.array([0.15, 0.15, 0.6]), min_action=np.array([-0.15, -0.15, 0.2]),
+                 datapath=None, n_games=250, alpha=0.0001,
                  beta=0.001, gamma=0.99, tau=0.005, batch_size=64,
                  noise='normal', per_alpha=0.6, per_beta=0.4, enable_HER=False):
 

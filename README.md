@@ -1,6 +1,16 @@
 # Object Sorting using Deep Reinforcement Learning based Robot & Computer Vision
 
-This repository holds the project files of 'Practical Course Robotics: WS21-22'.
+This repository holds the project files of 'Practical Course Robotics: WS21-22' presented at Universität Stuttgart.
+
+    * The idea is to use deep reinforcement learning (DRL) algorithm for robot object tending.
+    * For Proof of Concept, DRL algorithm's are benchmarked on openai-gym's 'FetchReach-v1' environment.
+    * DDPG is the best agent against PPO & TD3 considering the training rewards as metrics for evaluation.
+    * The openai-gym wrappped environment is designed in 'SolidWorks' & exported to 'rai'.
+    * As solving the env. directly takes >4M episodes the task is broken in parts to solve it faster.
+    * Wrapped functions are used to solve tasks
+    * One of these functions are moving the robot point-to-point using the trained agent & likewise.
+    * Inturn, camera is used to build up object tending strategy like sorting colored objects to it's bin.
+    * This strategy is read to tend the object in env. using the robot.
 
 ### Proof of Concept
 
@@ -81,7 +91,7 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
 
 * The objective is to reach the random target position using DDPG Agent.
 * For each play step in a game,
-  * Build: state = Current Robot TCP[x, y, z] | Target Location P[x, y, z]
+  * Build: state = Current Robot TCP(x, y, z) | Target Location P(x, y, z)
   * Compute: action = actor.choose_noisy_action(state)
   * Get: next_state, reward, done = env.step(action)
 * DDPG Agent is optimized to maximize the reward for each play step over the games.
