@@ -1,4 +1,4 @@
-import numpy as np
+
 import os
 
 from rai_gym.demo_env import Environment
@@ -15,4 +15,5 @@ if __name__ == '__main__':
     env = Environment(reach_skill=reach_agent)
 
     # Execute the app
-    env.run()
+    for _ in range(10):
+        env.run()

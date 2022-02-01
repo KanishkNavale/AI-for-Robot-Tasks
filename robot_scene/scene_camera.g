@@ -55,12 +55,12 @@ camera (camera_stand){
 }
 
 # Add the camera ---------------------------------------------------------------------
-obj0 (world){
+obj0 {
      shape:ssBox, size:[0.2, 0.1, 0.1, 0.01],
      color:[1,0,0], mass:0.2, Q:<t(0. 0. 1.)>
 }
 
-obj1 (world){
+obj1 {
      shape:ssBox, size:[0.2, 0.1, 0.1, 0.01],
      color:[0,0,1], mass:0.2, Q:<t(0. -0.15 1.)>
 }

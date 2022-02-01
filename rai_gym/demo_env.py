@@ -17,10 +17,6 @@ import libry as ry
 # Add Robot relative frame
 robot_pos_offset = np.array([0.0, 0.0, 0.59])
 
-# Robot Joint Limits
-joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.])
-joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
-
 
 @numba.jit(nopython=True)
 def _update_q(q, J, Y):
@@ -90,7 +86,8 @@ class Environment(gym.Env):
                 "Error building the Camera's Rigid Body Transformation Matrix")
 
         # Init. PosePredictor App.
-        self.pose_predictor = PosePredictor(cam_rigid_transformation, filters)
+        self.pose_predictor = PosePredictor(
+            self.intrinsic, cam_rigid_transformation, filters)
 
         # Init. Goal Indicator
         self.goal_marker = self.K.addFrame("goal_marker")
@@ -105,7 +102,7 @@ class Environment(gym.Env):
         self.IK_Steps = 5
 
         # Init. reset
-        self.reset()
+        self._reset()
 
     def _dead_sim(self, iterations: int = 1000) -> None:
         """Runs a no control simulation to refresh the states of the scene.
@@ -116,6 +113,26 @@ class Environment(gym.Env):
         for _ in range(iterations):
             self.S.step([], 0.01, ry.ControlMode.none)
 
+    def _randomize_box_position(self) -> None:
+        # Reset Position & color of the box
+        position = np.random.uniform(-1.5, 1.5, (3,))
+        position = np.clip(position,
+                           np.array([-0.1, -0.1, 1.1]),
+                           np.array([0, 0, 1.2]))
+        f = self.K.getFrame("Obj1")
+        f.setPosition(position)
+        self.S.setState(self.K.getFrameState())
+        self.S.step([], 0.01, ry.ControlMode.none)
+
+        position = np.random.uniform(-1.5, 1.5, (3,))
+        position = np.clip(position,
+                           np.array([0, 0, 1.1]),
+                           np.array([0.1, 0.1, 1.2]))
+        f = self.K.getFrame("Obj2")
+        f.setPosition(position)
+        self.S.setState(self.K.getFrameState())
+        self.S.step([], 0.01, ry.ControlMode.none)
+
     def _robot_reset(self, factor: float = 0.1) -> None:
         """Resets the robot to randomized poisition close to zero.
 
@@ -123,9 +140,9 @@ class Environment(gym.Env):
             factor (float, optional): smoothing factor. Defaults to 0.1.
         """
         # Generate Random Robot pose and set
-        q = np.random.rand(joint_low.shape[0],)
-        smooth_q = factor * np.clip(q, joint_low, joint_high)
-        self.K.setJointState(smooth_q)
+        q = len(self.K.getJointState())
+        q = 0.1 * np.ones(q)
+        self.K.setJointState(q)
 
     def _robot_step(self, action: np.ndarray) -> None:
         """Moves the robot using IK to position specified by action
@@ -155,7 +172,7 @@ class Environment(gym.Env):
             self.S.step(q, self.tau, ry.ControlMode.position)
             sleep(0.01)
 
-    def _MoveP2P(self, goal: np.float64, correct=False) -> np.float:
+    def _MoveP2P(self, goal: np.float, correct=False) -> np.float:
         """Use Deep Reinforcement Learning Agent to move robot to goal position.
 
         Args:
@@ -248,7 +265,7 @@ class Environment(gym.Env):
         rgb_image, depth_data = self.S.getImageAndDepth()
         point_cloud = self.S.depthData2pointCloud(depth_data, self.intrinsic)
 
-        return self.pose_predictor(rgb_image, point_cloud)
+        return None  # self.pose_predictor(rgb_image, depth_data, point_cloud)
 
     def _ExecuteStrategy(self, objects: List[Object]):
         """Executes computed strategy
@@ -256,18 +273,15 @@ class Environment(gym.Env):
         Args:
             List ([type]): List of objects with their tending strategy
         """
-        red_bin = self.K.getFrame("red_bin")
-        blue_bin = self.K.getFrame("blue_bin")
+        red_bin = self.K.getFrame("box1")
+        blue_bin = self.K.getFrame("box2")
 
-        for object in objects:
-            if np.allclose(object.color, np.array([1, 0, 0])):
-                self._TendObject(object.world_coord, red_bin.getPosition())
-                self._Wait(2)
-            elif np.allclose(object.color, np.array([0, 0, 1])):
-                self._TendObject(object.world_coord, blue_bin.getPosition())
-                self._Wait(2)
-            else:
-                raise ValueError('ERR: Found unregistered color coded object')
+        self._TendObject(self.Obj1.getPosition(),
+                         red_bin.getPosition() + np.array([0, 0, 0.1]))
+        self._Wait(2)
+        self._TendObject(self.Obj2.getPosition(),
+                         blue_bin.getPosition() + np.array([0, 0, 0.1]))
+        self._Wait(2)
 
     def _dump_debug(self, folder_location: string, objects: List[Object], image: np.ndarray):
         """Dumps app processed data into debug folder
@@ -299,12 +313,13 @@ class Environment(gym.Env):
 
     def _reset(self) -> None:
         # Resets the environment.
+        self._randomize_box_position()
         self._dead_sim()
         self._robot_reset()
 
     def run(self) -> None:
         # Executes the tending process
         self._reset()
-        object_list, processed_rgb = self._ComputeStrategy()
-        self._ExecuteStrategy(object_list)
-        self._dump_debug(object_list, processed_rgb)
+        object_list = self._ComputeStrategy()
+        self._ExecuteStrategy(None)
+        # self._dump_debug(object_list)
