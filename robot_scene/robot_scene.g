@@ -40,7 +40,7 @@ joint (pedestal panda_link0){
 camera(world){
     Q:<t(0.0 0.0 2.05)>,
     shape:marker, size:[.1],
-    focalLength:0.895, width:640, height:360, zRange:[.5 2]
+    focalLength:0.895, width:1024, height:768, zRange:[.5 1.5]
 }
 
 # Add the object --------------------------------------------------------------------

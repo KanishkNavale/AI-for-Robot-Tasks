@@ -1,12 +1,15 @@
-import os
+from typing import List, Union
 import string
-from typing import List
+
+import os
 import gym
 import numpy as np
 from time import sleep
 import numba
+import json
 import cv2
-from dataclasses import dataclass
+
+from vision_pipeline.pose import PosePredictor, Object
 
 import libry as ry
 
@@ -35,13 +38,6 @@ def _update_q(q, J, Y):
     return q
 
 
-@dataclass
-class ObjectStrategy:
-    pickup: float
-    dropoff: float
-    color: float
-
-
 class Environment(gym.Env):
     """Custom Environment that follows gym interface"""
 
@@ -66,21 +62,42 @@ class Environment(gym.Env):
         self.reach_skill = reach_skill
 
         # Add Camera
-        f = 0.895
-        f = f * 360.0
-        self.intrinsic = [f, f, 320.0, 180.0]
         self.S.addSensor("camera")
+        camera = self.K.frame("camera")
         try:
             self.S.getImageAndDepth()
         except Exception as e:
             raise ValueError(f'Camera Fault:{e}')
+
+        # Setup Camera Params.
+        filters = [np.array([1, 0, 0]), np.array([0, 0, 1])]
+
+        f = 0.895 * 360.0
+        self.intrinsic = [f, f, 320.0, 180.0]
+
+        cam_rotation = camera.getRotationMatrix()
+        cam_translation = camera.getPosition()
+
+        cam_rotation_translation = np.hstack(
+            (cam_rotation, cam_translation[:, None]))
+        cam_rigid_transformation = np.vstack(
+            (cam_rotation_translation, [0, 0, 0, 1]))
+
+        try:
+            assert cam_rigid_transformation.shape == (4, 4)
+        except:
+            raise ValueError(
+                "Error building the Camera's Rigid Body Transformation Matrix")
+
+        # Init. PosePredictor App.
+        self.pose_predictor = PosePredictor(cam_rigid_transformation, filters)
 
         # Init. Goal Indicator
         self.goal_marker = self.K.addFrame("goal_marker")
         self.goal_marker.setShape(ry.ST.sphere, [0.02])
         self.goal_marker.setColor([0, 1, 0])
 
-        # Embed object in the scene
+        # Add object in the env.
         self.Obj1 = self.K.getFrame("Obj1")
         self.Obj2 = self.K.getFrame("Obj2")
 
@@ -221,16 +238,72 @@ class Environment(gym.Env):
         self._Grasp('open')
         self._MoveP2P(drop + np.array([0.0, 0.0, .10]))
 
-    def _ComputeStrategy(self) -> List[ObjectStrategy]:
+    def _ComputeStrategy(self) -> Union[List[Object], np.ndarray]:
         """Computes the Object Tending Strategy using Camera.
 
         Returns:
-            List[ObjectStrategy]: List of objects with their tending strategy
+            Union[List[Object], np.ndarray]: List of objects with their tending strategy, processed image
         """
 
-        pass
+        rgb_image, depth_data = self.S.getImageAndDepth()
+        point_cloud = self.S.depthData2pointCloud(depth_data, self.intrinsic)
+
+        return self.pose_predictor(rgb_image, point_cloud)
+
+    def _ExecuteStrategy(self, objects: List[Object]):
+        """Executes computed strategy
+
+        Args:
+            List ([type]): List of objects with their tending strategy
+        """
+        red_bin = self.K.getFrame("red_bin")
+        blue_bin = self.K.getFrame("blue_bin")
+
+        for object in objects:
+            if np.allclose(object.color, np.array([1, 0, 0])):
+                self._TendObject(object.world_coord, red_bin.getPosition())
+                self._Wait(2)
+            elif np.allclose(object.color, np.array([0, 0, 1])):
+                self._TendObject(object.world_coord, blue_bin.getPosition())
+                self._Wait(2)
+            else:
+                raise ValueError('ERR: Found unregistered color coded object')
+
+    def _dump_debug(self, folder_location: string, objects: List[Object], image: np.ndarray):
+        """Dumps app processed data into debug folder
+
+        Args:
+            objects (List[Object]): List of 'Object' dataclass
+            image (np.ndarray); Processed RGB Image H x W x 3
+        """
+        folder = os.path.abspath(folder_location)
+
+        # Create data
+        data = []
+        for object in objects:
+            object_data = {'Object ID': object.id,
+                           'Camera Coordinates [u, v]': object.image_coord.tolist(),
+                           'World Coordinates [x, y, z]': object.world_coord.tolist(),
+                           'Color': object.color.tolist()
+                           }
+            data.append(object_data)
+
+        # Dump .json file
+        file = os.path.join(folder, 'object_data.json')
+        with open(file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+        # Dump the processed image
+        file = os.path.join(folder, 'processed_image.png')
+        cv2.imwrite(file, image)
 
     def reset(self) -> None:
         # Resets the environment.
         self._dead_sim()
         self._robot_reset()
+
+    def run(self) -> None:
+        # Executes the tending process
+        object_list, processed_rgb = self._ComputeStrategy()
+        self._ExecuteStrategy(object_list)
+        self._dump_debug(object_list, processed_rgb)
