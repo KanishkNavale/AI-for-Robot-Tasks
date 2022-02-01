@@ -297,13 +297,14 @@ class Environment(gym.Env):
         file = os.path.join(folder, 'processed_image.png')
         cv2.imwrite(file, image)
 
-    def reset(self) -> None:
+    def _reset(self) -> None:
         # Resets the environment.
         self._dead_sim()
         self._robot_reset()
 
     def run(self) -> None:
         # Executes the tending process
+        self._reset()
         object_list, processed_rgb = self._ComputeStrategy()
         self._ExecuteStrategy(object_list)
         self._dump_debug(object_list, processed_rgb)

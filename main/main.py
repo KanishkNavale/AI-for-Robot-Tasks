@@ -13,19 +13,6 @@ if __name__ == '__main__':
 
     # Init. Environments
     env = Environment(reach_skill=reach_agent)
-    env.reset()
-    # env.run()
 
-    # Get Strategy
-    object = env.Obj1.getPosition()
-    bin = np.array([0, 0, object[-1]])
-
-    # Tend the Object
-    env._TendObject(object, bin)
-
-    # Get Strategy
-    object = env.Obj2.getPosition()
-    bin = np.array([0, 0, object[-1]])
-
-    # Tend the Object
-    env._TendObject(object, bin)
+    # Execute the app
+    env.run()
