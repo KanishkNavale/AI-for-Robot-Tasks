@@ -44,5 +44,5 @@ camera(world){
 }
 
 # Add the object --------------------------------------------------------------------
-Obj1 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(0.1 0.1 1.5)> color:[1 0 0] contact:1}
-Obj2 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(-0.11 0.11 1.5)> color:[0 0 1] contact:1}
+Obj1 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(0.1 0.1 0)> color:[1 0 0] contact:1}
+Obj2 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(-0.11 0.11 0)> color:[0 0 1] contact:1}

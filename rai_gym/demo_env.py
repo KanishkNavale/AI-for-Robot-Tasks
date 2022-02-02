@@ -70,8 +70,6 @@ class Environment(gym.Env):
             raise ValueError(f'Camera Fault:{e}')
 
         # Setup Camera Params.
-        filters = [np.array([1, 0, 0]), np.array([0, 0, 1])]
-
         f = 0.895 * 360.0
         self.intrinsic = [f, f, 320.0, 180.0]
 
@@ -89,8 +87,13 @@ class Environment(gym.Env):
             raise ValueError(
                 "Error building the Camera's Rigid Body Transformation Matrix")
 
+        # Reset Robot
+        self._robot_reset()
+        self._dead_sim()
+
         # Init. PosePredictor App.
-        self.pose_predictor = PosePredictor(cam_rigid_transformation, filters)
+        rgb, _ = self.S.getImageAndDepth()
+        self.pose_predictor = PosePredictor(cam_rigid_transformation)
 
         # Init. Goal Indicator
         self.goal_marker = self.K.addFrame("goal_marker")
@@ -105,7 +108,7 @@ class Environment(gym.Env):
         self.IK_Steps = 5
 
         # Init. reset
-        self.reset()
+        self._reset()
 
     def _dead_sim(self, iterations: int = 1000) -> None:
         """Runs a no control simulation to refresh the states of the scene.
@@ -115,6 +118,26 @@ class Environment(gym.Env):
         """
         for _ in range(iterations):
             self.S.step([], 0.01, ry.ControlMode.none)
+
+    def _randomize_box_position(self) -> None:
+        # Reset Position & color of the box
+        position = np.random.uniform(-1.5, 1.5, (3,))
+        position = np.clip(position,
+                           np.array([-0.14, -0.14, 1.1]),
+                           np.array([0, 0, 1.1]))
+        f = self.K.getFrame("Obj1")
+        f.setPosition(position)
+        self.S.setState(self.K.getFrameState())
+        self.S.step([], 0.01, ry.ControlMode.none)
+
+        position = np.random.uniform(-1.5, 1.5, (3,))
+        position = np.clip(position,
+                           np.array([0, 0, 1.1]),
+                           np.array([0.14, 0.14, 1.1]))
+        f = self.K.getFrame("Obj2")
+        f.setPosition(position)
+        self.S.setState(self.K.getFrameState())
+        self.S.step([], 0.01, ry.ControlMode.none)
 
     def _robot_reset(self, factor: float = 0.1) -> None:
         """Resets the robot to randomized poisition close to zero.
@@ -282,9 +305,9 @@ class Environment(gym.Env):
         data = []
         for object in objects:
             object_data = {'Object ID': object.id,
-                           'Camera Coordinates [u, v]': object.image_coord.tolist(),
+                           'Camera Coordinates [u, v]': object.image_coord,
                            'World Coordinates [x, y, z]': object.world_coord.tolist(),
-                           'Color': object.color.tolist()
+                           'Color': object.color
                            }
             data.append(object_data)
 
@@ -299,6 +322,7 @@ class Environment(gym.Env):
 
     def _reset(self) -> None:
         # Resets the environment.
+        self._randomize_box_position()
         self._dead_sim()
         self._robot_reset()
 
@@ -306,5 +330,5 @@ class Environment(gym.Env):
         # Executes the tending process
         self._reset()
         object_list, processed_rgb = self._ComputeStrategy()
-        self._ExecuteStrategy(object_list)
-        self._dump_debug(object_list, processed_rgb)
+        # self._ExecuteStrategy(object_list)
+        self._dump_debug('main/data', object_list, processed_rgb)

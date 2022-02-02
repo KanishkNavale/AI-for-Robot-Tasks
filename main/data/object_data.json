@@ -1,0 +1,28 @@
+[
+    {
+        "Object ID": 0,
+        "Camera Coordinates [u, v]": [
+            503,
+            415
+        ],
+        "World Coordinates [x, y, z]": [
+            181.63636882653398,
+            -509.5207530461,
+            0.9599992513656614
+        ],
+        "Color": "red"
+    },
+    {
+        "Object ID": 1,
+        "Camera Coordinates [u, v]": [
+            600,
+            383
+        ],
+        "World Coordinates [x, y, z]": [
+            0.0,
+            0.0,
+            2.05
+        ],
+        "Color": "blue"
+    }
+]
