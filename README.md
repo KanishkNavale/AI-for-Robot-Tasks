@@ -146,8 +146,8 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
 ### 6. Runnnig the App
 
 ```bash
-    cd main
-    python main.py
+cd main
+python main.py
 ```
 
 ### Developers
