@@ -1,4 +1,4 @@
-# Object Sorting using Deep Reinforcement Learning based Robot & Computer Vision
+# Intelligent Object Sorting using Deep Reinforcement Learning Robot & Computer Vision
 
 This repository holds the project files of 'Practical Course Robotics: WS21-22' presented at Universität Stuttgart.
 
