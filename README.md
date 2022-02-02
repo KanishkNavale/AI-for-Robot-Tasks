@@ -137,7 +137,22 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
     ]
     ```
 
+### 5. Object Sorting Process
+
+<img src="presentation/spotlight.gif" width="500">
+
+* The processed data is dumped in the [folder](main/data)
+
+### 6. Runnnig the App
+
+```bash
+    cd main
+    python main.py
+```
+
 ### Developers
 
 * Olga Klimashevska
-* Kanishk Navale
+* Kanishk Navale,
+  * Email: <navalekanishk@gmail.com>
+  * Website: <https://kanishknavale.github.io/>
