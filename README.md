@@ -96,6 +96,47 @@ About: The Deep Deterministic Policy Gradient (DDPG) agent is an off policy algo
   * Get: next_state, reward, done = env.step(action)
 * DDPG Agent is optimized to maximize the reward for each play step over the games.
 
+### 4. Vision based Pose Detection
+
+<img src="main/data/processed_image.png" width="500">
+
+* Object Pose is computed by processing point cloud and RGB data.
+
+### 5. Logging the Process Data
+
+* The object data is saved in .json format and processed image too.
+
+    ```json
+    [
+        {
+            "Object ID": 0,
+            "Camera Coordinates [u, v]": [
+                320,
+                169
+            ],
+            "World Coordinates [x, y, z]": [
+                -0.0022170670613970446,
+                -0.00854486748731096,
+                1.0097603467432426
+            ],
+            "Color": "red"
+        },
+        {
+            "Object ID": 1,
+            "Camera Coordinates [u, v]": [
+                306,
+                179
+            ],
+            "World Coordinates [x, y, z]": [
+                0.04528890767445167,
+                0.02470116320227714,
+                1.0080491988625047
+            ],
+            "Color": "blue"
+        }
+    ]
+    ```
+
 ### Developers
 
 * Olga Klimashevska

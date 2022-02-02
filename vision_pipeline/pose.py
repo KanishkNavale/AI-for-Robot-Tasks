@@ -51,9 +51,14 @@ class PosePredictor:
             cv2.circle(rgb, (cX, cY), 2, (0, 255, 0), -1)
 
             # Find mean red depth
-            depth = pcl[cX, cY]
+            mean = np.zeros(3)
+            for pixel in c:
+                pixel_X = pixel[0, 1]
+                pixel_Y = pixel[0, 0]
+                mean += pcl[pixel_X, pixel_Y]
+            mean /= c.shape[0]
 
-        return [cX, cY], [cX * depth[0] / 0.89, cY * depth[1] / 0.89, depth[2]],
+        return [cX, cY], mean
 
     def __call__(self, rgb: np.ndarray, pcl: np.ndarray):
 

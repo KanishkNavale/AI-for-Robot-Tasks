@@ -17,10 +17,6 @@ import libry as ry
 # Add Robot relative frame
 robot_pos_offset = np.array([0.0, 0.0, 0.59])
 
-# Robot Joint Limits
-joint_low = np.array([-2.8, -1.7, -2.8, -3.0, -2.8, -0.0, -2.])
-joint_high = np.array([2.8, 1.7, 2.8, -0.0, 2.8, 3.7, 2.8])
-
 
 @numba.jit(nopython=True)
 def _update_q(q, J, Y):
@@ -63,7 +59,7 @@ class Environment(gym.Env):
 
         # Add Camera
         self.S.addSensor("camera")
-        camera = self.K.frame("camera")
+        self.camera = self.K.frame("camera")
         try:
             self.S.getImageAndDepth()
         except Exception as e:
@@ -73,8 +69,8 @@ class Environment(gym.Env):
         f = 0.895 * 360.0
         self.intrinsic = [f, f, 320.0, 180.0]
 
-        cam_rotation = camera.getRotationMatrix()
-        cam_translation = camera.getPosition()
+        cam_rotation = self.camera.getRotationMatrix()
+        cam_translation = self.camera.getPosition()
 
         cam_rotation_translation = np.hstack(
             (cam_rotation, cam_translation[:, None]))
@@ -92,7 +88,6 @@ class Environment(gym.Env):
         self._dead_sim()
 
         # Init. PosePredictor App.
-        rgb, _ = self.S.getImageAndDepth()
         self.pose_predictor = PosePredictor(cam_rigid_transformation)
 
         # Init. Goal Indicator
@@ -146,8 +141,8 @@ class Environment(gym.Env):
             factor (float, optional): smoothing factor. Defaults to 0.1.
         """
         # Generate Random Robot pose and set
-        q = np.random.rand(joint_low.shape[0],)
-        smooth_q = factor * np.clip(q, joint_low, joint_high)
+        q = np.ones(len(self.K.getJointState()))
+        smooth_q = factor * q
         self.K.setJointState(smooth_q)
 
     def _robot_step(self, action: np.ndarray) -> None:
@@ -178,7 +173,7 @@ class Environment(gym.Env):
             self.S.step(q, self.tau, ry.ControlMode.position)
             sleep(0.01)
 
-    def _MoveP2P(self, goal: np.float64, correct=False) -> np.float:
+    def _MoveP2P(self, goal: np.ndarray, correct=False) -> np.float:
         """Use Deep Reinforcement Learning Agent to move robot to goal position.
 
         Args:
@@ -270,6 +265,7 @@ class Environment(gym.Env):
 
         rgb_image, depth_data = self.S.getImageAndDepth()
         point_cloud = self.S.depthData2pointCloud(depth_data, self.intrinsic)
+        self.camera.setPointCloud(rgb_image, point_cloud)
 
         return self.pose_predictor(rgb_image, point_cloud)
 
@@ -279,15 +275,15 @@ class Environment(gym.Env):
         Args:
             List ([type]): List of objects with their tending strategy
         """
-        red_bin = self.K.getFrame("red_bin")
-        blue_bin = self.K.getFrame("blue_bin")
+        box1 = self.K.getFrame("box1").getPosition() + np.array([0, 0, 0.07])
+        box2 = self.K.getFrame("box2").getPosition() + np.array([0, 0, 0.07])
 
         for object in objects:
-            if np.allclose(object.color, np.array([1, 0, 0])):
-                self._TendObject(object.world_coord, red_bin.getPosition())
+            if object.color == 'red':
+                self._TendObject(object.world_coord, box2)
                 self._Wait(2)
-            elif np.allclose(object.color, np.array([0, 0, 1])):
-                self._TendObject(object.world_coord, blue_bin.getPosition())
+            elif object.color == 'blue':
+                self._TendObject(object.world_coord, box1)
                 self._Wait(2)
             else:
                 raise ValueError('ERR: Found unregistered color coded object')
@@ -317,6 +313,37 @@ class Environment(gym.Env):
             json.dump(data, f, ensure_ascii=False, indent=4)
 
         # Dump the processed image
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        green = (0, 255, 0)
+
+        id = objects[0].id
+        uvs = objects[0].image_coord
+        pose = np.around(objects[0].world_coord, 2)
+        color = objects[0].color
+
+        cv2.putText(image, f'Object ID: {id}',
+                    (10, 20), font, 0.35, green, 1, cv2.LINE_AA)
+        cv2.putText(image, f'Image uvs: {uvs}',
+                    (10, 40), font, 0.35, green, 1, cv2.LINE_AA)
+        cv2.putText(image, f'World pose: {pose}',
+                    (10, 60), font, 0.35, green, 1, cv2.LINE_AA)
+        cv2.putText(image, f'Color: {color}',
+                    (10, 80), font, 0.35, green, 1, cv2.LINE_AA)
+
+        id = objects[1].id
+        uvs = objects[1].image_coord
+        pose = np.around(objects[1].world_coord, 2)
+        color = objects[1].color
+
+        cv2.putText(image, f'Object ID: {id}',
+                    (10, 275), font, 0.35, green, 1, cv2.LINE_AA)
+        cv2.putText(image, f'Image uvs: {uvs}',
+                    (10, 295), font, 0.35, green, 1, cv2.LINE_AA)
+        cv2.putText(image, f'World pose: {pose}',
+                    (10, 315), font, 0.35, green, 1, cv2.LINE_AA)
+        cv2.putText(image, f'Color: {color}',
+                    (10, 335), font, 0.35, green, 1, cv2.LINE_AA)
+
         file = os.path.join(folder, 'processed_image.png')
         cv2.imwrite(file, image)
 
@@ -330,5 +357,5 @@ class Environment(gym.Env):
         # Executes the tending process
         self._reset()
         object_list, processed_rgb = self._ComputeStrategy()
-        # self._ExecuteStrategy(object_list)
+        self._ExecuteStrategy(object_list)
         self._dump_debug('main/data', object_list, processed_rgb)

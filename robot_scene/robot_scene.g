@@ -37,12 +37,17 @@ joint (pedestal panda_link0){
 }
 
 # Add the camera --------------------------------------------------------------------
-camera(world){
-    Q:<t(0.0 0.0 2.05)>,
+camera (camera_stand){
+    Q:<t(.0 2.0 -.5) d(-90 1 0 0)>,
     shape:marker, size:[.1],
-    focalLength:0.895, width:1024, height:768, zRange:[.5 1.5]
+    focalLength:0.895, width:640, height:360, zRange:[.5 100]
 }
 
 # Add the object --------------------------------------------------------------------
-Obj1 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(0.1 0.1 0)> color:[1 0 0] contact:1}
-Obj2 {  shape:ssBox, size:[0.04 0.04 0.04 0.001], mass:0.2 X:< t(-0.11 0.11 0)> color:[0 0 1] contact:1}
+Obj1 {  shape:ssBox, size:[0.05 0.05 0.05 0.001], mass:0.2 X:< t(0.05 0 1.1)> color:[1 0 0] contact:1}
+Obj2 {  shape:ssBox, size:[0.05 0.05 0.05 0.001], mass:0.2 X:< t(0 -0.07 1.1)> color:[0 0 1] contact:1}
+
+
+# Add the bins --------------------------------------------------------------------
+box1 (table)	{  shape:ssBox, size:[0.1 0.03 0.1 0.0001],color:[1 1 0], Q:<t(0.07 0.04 -0.2)>, joint:rigid}
+box2 (table)	{  shape:ssBox, size:[0.1 0.03 0.1 0.0001],color:[1 0 1], Q:<t(0.2 0.04 -0.2)> , joint:rigid}
