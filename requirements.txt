@@ -3,4 +3,4 @@ Box2D
 scipy
 numba
 matplotlib
-torch==1.10.1+cu113
+torch==1.13.1
